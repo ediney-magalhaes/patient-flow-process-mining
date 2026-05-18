@@ -31,12 +31,14 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - `CHANGELOG.md` — este arquivo
 - `LICENSE` (MIT)
 - `.gitignore` (Python)
-#### Pendente neste sprint
- 
-- Estrutura Unity Catalog (catálogo e schemas)
-- Script local de anonimização
-- ADRs iniciais
-- Estrutura de documentação (`docs/`)
+- Unity Catalog configurado: catálogo `hospital_santa_rosa` com schemas 
+  `bronze_fluxo`, `silver_fluxo`, `gold_fluxo` e `ml_fluxo`
+- Script local de anonimização PII (SHA-256, remoção, generalização) com 
+  configuração modular para 9 bases hospitalares
+- ADRs iniciais (0001-0005): Lakehouse, Medallion, Declarative Pipelines, 
+  PM4Py, anonimização local
+- Estrutura de documentação (`docs/`) com 8 seções temáticas
+
 ---
  
 ## Roadmap de Versões
