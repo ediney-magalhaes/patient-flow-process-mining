@@ -181,13 +181,19 @@ validações manuais.
  
 📖 **ADR (rascunho):** [docs/02-architecture/adr/0003-declarative-pipelines.md](docs/02-architecture/adr/0003-declarative-pipelines.md)
  
-### 3.6 Método de ingestão 🔲 A validar
- 
-**Intenção:** usar Auto Loader (cloudFiles) para detecção incremental de 
-novos arquivos.
- 
-**Pendência:** validar se Auto Loader funciona com Unity Catalog Volumes na 
-Free Edition. Alternativa: leitura batch simples via `spark.read`.
+### 3.6 Método de ingestão ✅ Decidido
+
+**Decisão:** Auto Loader (`cloudFiles`) com `trigger(availableNow=True)`.
+
+**Validação realizada:** Auto Loader funciona na Free Edition com Volumes do 
+Unity Catalog. O modo `availableNow` processa todos os arquivos disponíveis e 
+encerra — adequado para carga mensal e compatível com a quota serverless.
+
+**Estrutura:** cada base tem uma subpasta dedicada no Volume `landing_zone`, 
+e o Auto Loader monitora cada subpasta independentemente com checkpoint próprio.
+
+**Alternativa descartada:** `spark.read` batch — funcional, mas sem 
+checkpointing automático nem schema evolution.
  
 ### 3.7 CI/CD 🔲 A validar
  
@@ -201,11 +207,27 @@ Free Edition. Alternativa: deploy manual ou scripts via REST API.
 ## 4. Modelo de Dados (Planejado)
  
 ### 4.1 Camada Bronze
- 
-| Tabela | Granularidade | Origem | Refresh |
-|---|---|---|---|
-| `bronze_emergencia_raw` | 1 linha por registro bruto | Excel mensal | Mensal |
-| `bronze_internacao_raw` | 1 linha por internação bruta | Excel mensal | Mensal |
+
+| Tabela | Granularidade | Registros (mar/2026) | Origem | Refresh |
+|---|---|---|---|---|
+| `bronze_altas_raw` | 1 linha por alta | 908 | Excel mensal | Mensal |
+| `bronze_atendimento_emergencia_raw` | 1 linha por atendimento | 8.730 | Excel mensal | Mensal |
+| `bronze_cirurgias_raw` | 1 linha por cirurgia | 1.567 | Excel mensal | Mensal |
+| `bronze_epidemio_raw` | 1 linha por caso epidemiológico | 821 | Excel mensal | Mensal |
+| `bronze_exames_imagem_raw` | 1 linha por exame | 5.866 | Excel mensal | Mensal |
+| `bronze_internacoes_raw` | 1 linha por internação | 867 | Excel mensal | Mensal |
+| `bronze_movimentacoes_raw` | 1 linha por movimentação | Pendente | Excel mensal | Mensal |
+
+**Características implementadas:**
+
+- Schema flexível (schema evolution via Auto Loader `schemaLocation`)
+- Append-only — dados brutos nunca são alterados
+- Metadata de ingestão (`_ingestion_timestamp`, `_source_file`)
+- Column Mapping habilitado para tabelas com caracteres especiais nos nomes de colunas
+- Ingestão via Auto Loader com checkpoint por tabela
+
+> ⚠️ `bronze_movimentacoes_raw` pendente — o arquivo de origem tem estrutura 
+> de relatório agrupado que requer pré-processamento dedicado antes da ingestão.
  
 **Características planejadas:**
  
