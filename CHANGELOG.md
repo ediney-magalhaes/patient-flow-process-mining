@@ -16,11 +16,34 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 ---
  
 ## [Não Lançado]
- 
+
 ### Adicionado
- 
-#### Sprint 0 — Fundação (em andamento)
- 
+
+#### Sprint 1 — Bronze (em andamento)
+
+- Volume `landing_zone` criado no Unity Catalog com subpastas por base
+- Auto Loader (`cloudFiles`) validado na Free Edition com `trigger(availableNow=True)`
+- Notebook `01_bronze_ingestion` — pipeline de ingestão Bronze via Auto Loader
+- 6 tabelas Bronze criadas com dados reais de março/2026:
+  - `bronze_altas_raw` (908 registros)
+  - `bronze_atendimento_emergencia_raw` (8.730 registros)
+  - `bronze_cirurgias_raw` (1.567 registros)
+  - `bronze_epidemio_raw` (821 registros)
+  - `bronze_exames_imagem_raw` (5.866 registros)
+  - `bronze_internacoes_raw` (867 registros)
+- Metadados de ingestão: `_ingestion_timestamp` e `_source_file` em todas as tabelas
+- Column Mapping habilitado para tabelas com caracteres especiais nos nomes de colunas
+- `requirements.txt` com dependências do projeto
+
+#### Pendente neste sprint
+
+- Script de pré-processamento para base de movimentações (estrutura de relatório)
+- Base de exames laboratoriais (pendente confirmação de timestamps)
+- Transformação Bronze → Silver
+- Atualização do ARCHITECTURE.md com decisões validadas
+
+#### Sprint 0 — Fundação (concluído)
+
 - Workspace Databricks Free Edition (AWS) configurado
 - Repositório Git criado e conectado ao Databricks via Git folder
 - `README.md` — visão geral, problema de negócio, solução, impacto esperado
@@ -38,7 +61,6 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - ADRs iniciais (0001-0005): Lakehouse, Medallion, Declarative Pipelines, 
   PM4Py, anonimização local
 - Estrutura de documentação (`docs/`) com 8 seções temáticas
-
 ---
  
 ## Roadmap de Versões
