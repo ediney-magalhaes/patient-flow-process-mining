@@ -89,8 +89,8 @@ e refinamento.
 | Camada | Tecnologia | Status |
 |---|---|---|
 | **Plataforma** | Databricks Free Edition (AWS) | ✅ Configurado |
-| **Storage** | Delta Lake + Unity Catalog | 🔲 Sprint 0 |
-| **Ingestão** | A definir (Auto Loader ou batch) | 🔲 Sprint 1 |
+| **Storage** | Delta Lake + Unity Catalog | ✅ Sprint 0 |
+| **Ingestão** | Auto Loader (`cloudFiles`) | ✅ Sprint 1 |
 | **Transformação** | Lakeflow Declarative Pipelines | 🔲 Sprint 1 |
 | **Process Mining** | PM4Py | 🔲 Sprint 3 |
 | **Governança** | Unity Catalog | 🔲 Sprint 0 |
@@ -105,7 +105,7 @@ e refinamento.
 ## Roadmap
  
 - [x] **Sprint 0** — Fundação: setup Databricks, Unity Catalog, repositório Git
-- [ ] **Sprint 1** — Bronze + Silver: ingestão e limpeza dos dados
+- [ ] **Sprint 1** — Bronze + Silver: ingestão e limpeza dos dados (Bronze concluída — 6 tabelas com dados reais)
 - [ ] **Sprint 2** — Gold: event log canônico no padrão XES
 - [ ] **Sprint 3** — Process Mining: descoberta de processos, gargalos, conformidade
 - [ ] **Sprint 4** — Entregáveis: dashboard executivo, app interativo
