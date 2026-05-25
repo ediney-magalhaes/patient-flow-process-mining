@@ -38,5 +38,5 @@ for col in time_stamps:
 df = df.reset_index(drop=True)
 
 # salva como csv
-df.to_csv('data/raw/exames_laboratoriais_limpo.csv', index=False, encoding='utf-8')
+df.to_csv('data/raw/exames_laboratoriais_limpo.csv', index=False, encoding='utf-8', sep=';')
 print(f'Linhas processadas: {len(df)}')
