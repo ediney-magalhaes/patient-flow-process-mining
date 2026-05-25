@@ -161,4 +161,14 @@ ANONYMIZATION_CONFIGS: list[ColumnConfig] = [
         ],
         generalize_columns={},
     ),
+    ColumnConfig(
+        name="movimentacoes_limpo",
+        hash_columns=[
+            "ATEND",
+        ],
+        drop_columns=[
+            "NM_PACIENTE"
+        ],
+        generalize_columns={},
+    ),
 ]
