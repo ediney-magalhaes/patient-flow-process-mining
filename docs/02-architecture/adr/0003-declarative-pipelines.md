@@ -1,13 +1,14 @@
 # ADR-0003: Motor de Transformação — Lakeflow Declarative Pipelines
  
-## Status
- 
-**Proposto** (pendente validação na Free Edition)
- 
-**Data:** 2026-04-26  
-**Decisores:** Ediney Magalhães (Analytics Engineer)  
-**Sprint:** 0  
-**Relacionado a:** [ADR-0001](0001-why-lakehouse.md), [ADR-0002](0002-medallion-design.md)
+## Decisão
+
+**Adotar Lakeflow Declarative Pipelines (anteriormente Delta Live Tables / DLT) 
+como motor declarativo principal de transformação.**
+
+Validação realizada em 25/05/2026: Lakeflow funciona na Free Edition com 
+compute serverless. Pipeline `silver_transformations` criado e executado com 
+sucesso, materializando a tabela `silver_altas` no Unity Catalog com 
+expectation `atendimento_valido` via `@dlt.expect_or_drop`.
  
 ---
  
@@ -107,12 +108,11 @@ Gold. Decisão a ser tomada no Sprint 1/2.
 - Troca de controle granular por produtividade — aceitável no contexto
 ---
  
-## Validação necessária (Sprint 1)
- 
-- [ ] Confirmar se Lakeflow Declarative Pipelines está disponível na Free Edition
-- [ ] Testar criação de pipeline simples com expectations
-- [ ] Se indisponível: migrar para Alternativa A (notebooks puros) e atualizar este ADR para "Rejeitado"
-- [ ] Se disponível: atualizar status para "Aceito"
+## Validação realizada (Sprint 1)
+
+- [x] Confirmar se Lakeflow Declarative Pipelines está disponível na Free Edition
+- [x] Testar criação de pipeline simples com expectations
+- [x] Status atualizado para "Aceito"
 ---
  
 ## Referências
@@ -127,3 +127,4 @@ Gold. Decisão a ser tomada no Sprint 1/2.
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-04-26 | Criação (status: proposto) | @ediney-magalhaes |
+| 2026-05-25 | Validado na Free Edition, status atualizado para Aceito | @ediney-magalhaes |

@@ -164,23 +164,27 @@ local executado no ambiente do hospital.
 - Independe de funcionalidades específicas da plataforma
 📖 **ADR:** [docs/02-architecture/adr/0005-local-anonymization.md](docs/02-architecture/adr/0005-local-anonymization.md)
  
-### 3.5 Pipeline declarativo vs. notebooks puros 🔲 A validar
- 
-**Intenção:** usar Lakeflow Declarative Pipelines (anteriormente Delta Live 
-Tables) como motor de transformação, em vez de notebooks PySpark manuais.
- 
-**Vantagens esperadas:**
- 
-- Lineage automático no Unity Catalog
-- Validação de qualidade nativa (expectations)
-- Gerenciamento declarativo de dependências entre tabelas
-- Menos código operacional
-**Pendência:** validar disponibilidade e limitações na Free Edition antes de 
-confirmar esta decisão. Se indisponível, a alternativa é notebooks PySpark com 
-validações manuais.
- 
-📖 **ADR (rascunho):** [docs/02-architecture/adr/0003-declarative-pipelines.md](docs/02-architecture/adr/0003-declarative-pipelines.md)
- 
+### 3.5 Pipeline declarativo vs. notebooks puros ✅ Decidido
+
+**Decisão:** Lakeflow Declarative Pipelines como motor de transformação 
+Bronze → Silver → Gold.
+
+**Validação realizada:** Lakeflow funciona na Free Edition com compute 
+serverless. Pipeline `silver_transformations` criado e executado com sucesso, 
+materializando tabelas no Unity Catalog com expectations de qualidade.
+
+**Vantagens confirmadas:**
+
+- Materialização declarativa de tabelas via `@dlt.table`
+- Validação de qualidade integrada via `@dlt.expect_or_drop`
+- Tabelas gravadas diretamente no schema configurado do Unity Catalog
+- Compute serverless sem necessidade de cluster dedicado
+
+**Alternativa descartada:** notebooks PySpark imperativos — funcionais, mas 
+sem validação de qualidade integrada nem gerenciamento declarativo.
+
+📖 **ADR:** [docs/02-architecture/adr/0003-declarative-pipelines.md](docs/02-architecture/adr/0003-declarative-pipelines.md)
+
 ### 3.6 Método de ingestão ✅ Decidido
 
 **Decisão:** Auto Loader (`cloudFiles`) com `trigger(availableNow=True)`.
@@ -216,7 +220,8 @@ Free Edition. Alternativa: deploy manual ou scripts via REST API.
 | `bronze_epidemio_raw` | 1 linha por caso epidemiológico | 821 | Excel mensal | Mensal |
 | `bronze_exames_imagem_raw` | 1 linha por exame | 5.866 | Excel mensal | Mensal |
 | `bronze_internacoes_raw` | 1 linha por internação | 867 | Excel mensal | Mensal |
-| `bronze_movimentacoes_raw` | 1 linha por movimentação | Pendente | Excel mensal | Mensal |
+| `bronze_exames_laboratoriais_raw` | 1 linha por exame laboratorial | 20.479 | CSV pré-processado | Mensal |
+| `bronze_movimentacoes_raw` | 1 linha por movimentação | 3.613 | CSV pré-processado | Mensal |
 
 **Características implementadas:**
 
@@ -225,22 +230,21 @@ Free Edition. Alternativa: deploy manual ou scripts via REST API.
 - Metadata de ingestão (`_ingestion_timestamp`, `_source_file`)
 - Column Mapping habilitado para tabelas com caracteres especiais nos nomes de colunas
 - Ingestão via Auto Loader com checkpoint por tabela
-
-> ⚠️ `bronze_movimentacoes_raw` pendente — o arquivo de origem tem estrutura 
-> de relatório agrupado que requer pré-processamento dedicado antes da ingestão.
  
 **Características planejadas:**
  
 - Schema flexível (schema evolution habilitado)
 - Append-only — dados brutos nunca são alterados
 - Metadata de ingestão (`_ingestion_timestamp`, `_source_file`)
+
 ### 4.2 Camada Silver
- 
-| Tabela | Granularidade | Propósito |
-|---|---|---|
-| `silver_event_log` | 1 linha por evento | Event log padronizado |
-| `silver_dim_paciente` | 1 linha por paciente (anonimizado) | Dimensão paciente |
-| `silver_dim_atividade` | 1 linha por atividade | Vocabulário controlado |
+
+| Tabela | Granularidade | Registros | Propósito | Status |
+|---|---|---|---|---|
+| `silver_altas` | 1 linha por alta (deduplicada) | 895 | Altas tipadas e limpas | ✅ Implementada |
+| `silver_event_log` | 1 linha por evento | - | Event log padronizado | 🔲 Planejada |
+| `silver_dim_paciente` | 1 linha por paciente (anonimizado) | - | Dimensão paciente | 🔲 Planejada |
+| `silver_dim_atividade` | 1 linha por atividade | - | Vocabulário controlado | 🔲 Planejada |
  
 **Características planejadas:**
  
@@ -277,7 +281,7 @@ sequenceDiagram
     H->>L: Exporta Excel/CSV mensal
     L->>L: Anonimiza PII (SHA-256)
     L->>V: Upload para Databricks
-    V->>B: Ingestão (método a validar)
+    V->>B: Auto Loader (cloudFiles)
     B->>S: Limpeza + validação + padronização
     S->>G: Event log XES + métricas + análises PM4Py
     G->>C: Dashboard / App / BI Conversacional
@@ -343,5 +347,5 @@ hospital_santa_rosa          (catalog)
 - [C4 Model](https://c4model.com/)
 ---
  
-**Última atualização:** Abril 2026 • **Sprint atual:** 0 — Fundação •
+**Última atualização:** Maio 2026 • **Sprint atual:** 1 — Bronze + Silver •
 **Mantenedor:** [Ediney Magalhães](https://github.com/ediney-magalhaes)

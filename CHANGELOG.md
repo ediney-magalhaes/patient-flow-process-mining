@@ -19,27 +19,34 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 
 ### Adicionado
 
-#### Sprint 1 — Bronze (em andamento)
+#### Sprint 1 — Bronze + Silver (em andamento)
 
 - Volume `landing_zone` criado no Unity Catalog com subpastas por base
 - Auto Loader (`cloudFiles`) validado na Free Edition com `trigger(availableNow=True)`
 - Notebook `01_bronze_ingestion` — pipeline de ingestão Bronze via Auto Loader
-- 6 tabelas Bronze criadas com dados reais de março/2026:
+- 8 tabelas Bronze criadas com dados reais de março/2026:
   - `bronze_altas_raw` (908 registros)
   - `bronze_atendimento_emergencia_raw` (8.730 registros)
   - `bronze_cirurgias_raw` (1.567 registros)
   - `bronze_epidemio_raw` (821 registros)
   - `bronze_exames_imagem_raw` (5.866 registros)
+  - `bronze_exames_laboratoriais_raw` (20.479 registros)
   - `bronze_internacoes_raw` (867 registros)
+  - `bronze_movimentacoes_raw` (3.613 registros)
 - Metadados de ingestão: `_ingestion_timestamp` e `_source_file` em todas as tabelas
 - Column Mapping habilitado para tabelas com caracteres especiais nos nomes de colunas
+- Scripts de pré-processamento local para bases com estrutura de relatório:
+  - `preprocess_exames_lab.py` — limpeza de paginação e normalização de timestamps
+  - `preprocess_movimentacoes.py` — limpeza de paginação, normalização de layouts deslocados e propagação de unidade/data
+- Integração das bases de exames laboratoriais e movimentações ao pipeline de anonimização
+- Lakeflow Declarative Pipelines validado na Free Edition (confirma ADR-0003)
+- Pipeline `silver_transformations` criado no Databricks
+- Tabela `silver_altas` criada (895 registros) — tipada, deduplicada e limpa
 - `requirements.txt` com dependências do projeto
 
 #### Pendente neste sprint
 
-- Script de pré-processamento para base de movimentações (estrutura de relatório)
-- Base de exames laboratoriais (pendente confirmação de timestamps)
-- Transformação Bronze → Silver
+- Transformações Silver para as demais 7 tabelas Bronze
 - Atualização do ARCHITECTURE.md com decisões validadas
 
 #### Sprint 0 — Fundação (concluído)
@@ -68,9 +75,9 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 > Planejamento de releases futuros. Atualizado ao final de cada sprint.
  
 ### [0.1.0] — Sprint 0: Fundação
- 
-**Previsão:** em andamento
- 
+
+**Status:** concluído
+
 - Setup completo do workspace e Unity Catalog
 - Documentação base do repositório
 - Script de anonimização local
