@@ -105,7 +105,7 @@ e refinamento.
 ## Roadmap
  
 - [x] **Sprint 0** — Fundação: setup Databricks, Unity Catalog, repositório Git
-- [ ] **Sprint 1** — Bronze + Silver: ingestão e limpeza dos dados (Bronze concluída — 8 tabelas; Silver em andamento — 1 de 8 tabelas)
+- [ ] **Sprint 1** — Bronze + Silver: ingestão e limpeza dos dados (Bronze concluída — 8 tabelas; Silver em andamento — 4 de 8 tabelas)
 - [ ] **Sprint 2** — Gold: event log canônico no padrão XES
 - [ ] **Sprint 3** — Process Mining: descoberta de processos, gargalos, conformidade
 - [ ] **Sprint 4** — Entregáveis: dashboard executivo, app interativo

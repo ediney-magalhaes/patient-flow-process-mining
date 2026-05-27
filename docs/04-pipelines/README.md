@@ -8,7 +8,10 @@ Documentação dos pipelines de ingestão, transformação e orquestração.
   para tabelas Delta na camada Bronze. Notebook no Workspace do Databricks.
 - **`silver_transformations`** — Pipeline Lakeflow Declarative Pipelines para 
   transformações Bronze → Silver. Materializa tabelas tipadas, limpas e 
-  deduplicadas no schema `silver_fluxo`. Pipeline no Workspace do Databricks.
+  deduplicadas no schema `silver_fluxo`. 4 tabelas implementadas: 
+  `silver_altas` (895 registros), `silver_atendimento_emergencia` (6.236 registros, 
+  4 flags temporais), `silver_cirurgias` (1.600 registros, 5 flags temporais), 
+  `silver_epidemio` (821 registros, enriquecimento). Pipeline no Workspace do Databricks.
 
 ## Scripts de pré-processamento local
 

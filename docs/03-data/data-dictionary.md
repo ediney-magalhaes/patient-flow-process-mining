@@ -101,6 +101,67 @@ Lakeflow Declarative Pipelines (pipeline `silver_transformations`).
   - Remoção de colunas originais de data/hora separadas e metadados de ingestão
 - **Expectation:** `atendimento_valido` — descarta linhas com ATENDIMENTO nulo
 
+### silver_atendimento_emergencia
+
+- **Schema:** `hospital_santa_rosa.silver_fluxo`
+- **Granularidade:** 1 linha por atendimento de emergência (deduplicada por CD_ATENDIMENTO)
+- **Origem:** `bronze_atendimento_emergencia_raw`
+- **Volume referência:** 6.236 registros (mar/2026)
+- **Transformações aplicadas:**
+  - Filtro por empresa (`EMPRESA = 'HSR'`)
+  - Tipagem de 13 colunas de timestamp (string → timestamp)
+  - Tipagem de data de atendimento (string → date)
+  - Tipagem de colunas numéricas (`IDADE`, `COD_TRIAGEM`, `REGISTRO_ANS`, 
+    `IDADE_CALCULADA` → integer)
+  - Padronização de classificação de risco (`AMARELO1` → `AMARELO`)
+  - 4 flags de consistência temporal: `flag_totem_classif`, `flag_classif_recep`, 
+    `flag_recep_atend`, `flag_atend_alta`
+  - Deduplicação por CD_ATENDIMENTO (ROW_NUMBER, mantém DT_HR_CLASSIF_RISCO 
+    mais antiga)
+  - Remoção de colunas financeiras, leito sem dados, metadados de ingestão
+- **Expectations (monitoramento):** `flag_totem_classif`, `flag_classif_recep`, 
+  `flag_recep_atend`, `flag_atend_alta`
+- **Expectation (drop):** nenhuma
+
+### silver_cirurgias
+
+- **Schema:** `hospital_santa_rosa.silver_fluxo`
+- **Granularidade:** 1 linha por procedimento cirúrgico (sem deduplicação — um 
+  atendimento pode ter múltiplos procedimentos)
+- **Origem:** `bronze_cirurgias_raw`
+- **Volume referência:** 1.600 registros (mar/2026)
+- **Transformações aplicadas:**
+  - Correção de encoding (`MASCULIN0` → `MASCULINO`, `INTERNAC?O` → `INTERNACAO`)
+  - Tipagem de 13 colunas de timestamp (string → timestamp)
+  - Tipagem de colunas numéricas (`IDADE`, `CD_AVISO_CIRURGIA`, `CD_CIRURGIA_AVISO`, 
+    `CODIGO_CIRURGIA`, `COD_FATURAMENTO` → integer)
+  - 5 flags de consistência temporal: `flag_entrada_anestesia`, `flag_anestesia_cirurgia`, 
+    `flag_cirurgia_fim`, `flag_fim_anestesia`, `flag_anestesia_saida`
+  - Remoção de colunas calculadas, antibiótico, RPA sem dados, metadados de ingestão
+- **Expectations (monitoramento):** `flag_entrada_anestesia`, `flag_anestesia_cirurgia`, 
+  `flag_cirurgia_fim`, `flag_fim_anestesia`, `flag_anestesia_saida`
+- **Nota:** coluna `SN_PRINCIPAL` identifica o procedimento principal de cada 
+  sessão cirúrgica — usar na Gold para deduplicar por atendimento quando necessário
+- **Pendente:** correção de encoding na coluna `DESCRICAO_CIRURGIA` (depende de 
+  identificar encoding do CSV de origem)
+
+### silver_epidemio
+
+- **Schema:** `hospital_santa_rosa.silver_fluxo`
+- **Granularidade:** 1 linha por internação (sem duplicatas)
+- **Origem:** `bronze_epidemio_raw`
+- **Volume referência:** 821 registros (mar/2026)
+- **Papel:** base de enriquecimento — CIDs múltiplos, dados de UTI, complexidade, 
+  procedimentos realizados
+- **Transformações aplicadas:**
+  - Tipagem de timestamps com formato brasileiro (`dd/MM/yyyy HH:mm` e `dd/MM/yyyy HH:mm:ss`)
+  - Tipagem de timestamps formato ISO (`previsao_alta`, `dtsumario`)
+  - Combinação de `dt_alta` + `hr_alta` em `dt_hr_alta`
+  - Tipagem de dates com formato brasileiro (`dd/MM/yyyy` e `dd/MM/yy`)
+  - Tipagem de 17 colunas numéricas (integer)
+  - Remoção de colunas financeiras, colunas vazias, metadados de ingestão
+- **Expectation (drop):** `atendimento_valido` — descarta linhas com atendimento nulo
+
 ---
 
 ## Camada Gold

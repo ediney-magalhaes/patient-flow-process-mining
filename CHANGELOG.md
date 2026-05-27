@@ -42,12 +42,21 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - Lakeflow Declarative Pipelines validado na Free Edition (confirma ADR-0003)
 - Pipeline `silver_transformations` criado no Databricks
 - Tabela `silver_altas` criada (895 registros) — tipada, deduplicada e limpa
+- Tabela `silver_atendimento_emergencia` criada (6.236 registros) — tipada, deduplicada, com 4 flags de consistência temporal
+- Tabela `silver_cirurgias` criada (1.600 registros) — tipada, com 5 flags de consistência temporal, granularidade por procedimento
+- Tabela `silver_epidemio` criada (821 registros) — tipada, base de enriquecimento clínico
 - `requirements.txt` com dependências do projeto
+
 
 #### Pendente neste sprint
 
-- Transformações Silver para as demais 7 tabelas Bronze
-- Atualização do ARCHITECTURE.md com decisões validadas
+- Transformações Silver para as demais 4 tabelas Bronze (exames_imagem, exames_laboratoriais, internacoes, movimentacoes)
+- Validação pré-ingestão de schema dos CSVs (item futuro)
+- Correção de encoding dos CSVs na origem (pendente identificar encoding do sistema hospitalar)
+
+### Corrigido
+
+- Anonimização da base epidemio: colunas `prestador1` e `prestador2` adicionadas ao `config.py` e dados re-ingeridos na Bronze
 
 #### Sprint 0 — Fundação (concluído)
 
