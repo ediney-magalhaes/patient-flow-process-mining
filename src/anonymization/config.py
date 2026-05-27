@@ -138,6 +138,8 @@ ANONYMIZATION_CONFIGS: list[ColumnConfig] = [
             "liberacao_alta",
             "resp_alta",
             "nm_med_presc",
+            "prestador1",
+            "prestador2",
         ],
         drop_columns=[
             "nome_paciente",
