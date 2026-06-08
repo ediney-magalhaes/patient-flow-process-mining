@@ -441,3 +441,47 @@ def silver_exames_laboratoriais():
     )
 
     return df
+
+#---------------------------------------------------------------------------------------------------------------------
+# materialização da tabela de internações
+#---------------------------------------------------------------------------------------------------------------------
+@dlt.expect("flag_atendimento_alta", "flag_atendimento_alta IS NULL OR flag_atendimento_alta = true")
+@dlt.table(
+    name="silver_internacoes",
+    comment="Tabela silver de internações — tipada, deduplicada e com flag de consistência temporal"
+)
+def silver_internacoes():
+    # leitura da tabela bronze_internacoes_raw
+    df = spark.read.table("hospital_santa_rosa.bronze_fluxo.bronze_internacoes_raw")
+
+    # renomeia ATENDIMENTO para CD_INTERNACAO
+    df = df.withColumnRenamed("ATENDIMENTO", "CD_INTERNACAO")
+
+    # converter colunas timestamp
+    df = df.withColumn("DT_HR_ATENDIMENTO", to_timestamp(col("DT_HR_ATENDIMENTO"), "yyyy-MM-dd HH:mm:ss"))
+    df = df.withColumn("DT_HR_ALTA", to_timestamp(col("DT_HR_ALTA"), "yyyy-MM-dd HH:mm:ss"))
+
+    # converte colunas numéricas de string para inteiro
+    for coluna in ["IDADE", "CD_ORIGEM"]:
+        df = df.withColumn(coluna, col(coluna).cast("int"))
+    
+    # flag de consistência temporal (True = sequência correta, False = inconsistência encontrada)
+    df = df.withColumn("flag_atendimento_alta",
+        when(
+            col("DT_HR_ATENDIMENTO").isNull() | col("DT_HR_ALTA").isNull(), None
+            ).otherwise(col("DT_HR_ATENDIMENTO") <= col("DT_HR_ALTA"))
+    )
+
+    # deduplicacao por CD_ATENDIMENTO
+    numero_linha = Window.partitionBy("CD_INTERNACAO").orderBy(col("DT_HR_ATENDIMENTO").asc_nulls_last())
+    df = df.withColumn("linha", row_number().over(numero_linha))
+    df = df.filter(col("linha") == 1)
+    df = df.drop("linha")
+
+    # remove colunas desnecessárias
+    df = df.drop(
+        "CD_LEITO",
+        "_rescued_data", "_source_file", "_ingestion_timestamp"
+    )
+
+    return df
