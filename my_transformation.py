@@ -1,8 +1,9 @@
 import dlt
 from pyspark.sql.functions import col, to_date, to_timestamp, concat_ws, trim, regexp_replace, when, lit, row_number
 from pyspark.sql.window import Window
-
+#---------------------------------------------------------------------------------------------------------------------
 # materialização da tabela de ALTAS
+#---------------------------------------------------------------------------------------------------------------------
 @dlt.table(
   name="silver_altas",
   comment="Tabela silver de altas hospitalares — tipada, deduplicada e limpa"
@@ -49,7 +50,9 @@ def silver_altas():
     )
     return df
 
+#---------------------------------------------------------------------------------------------------------------------
 # materialização da tabela de ATENDIMENTOS EMERGÊNCIA
+#---------------------------------------------------------------------------------------------------------------------
 @dlt.table(
     name="silver_atendimento_emergencia",
     comment="Tabela Silver de atendimentos de emergencia - tipada, deduplicada e limpa"
@@ -136,7 +139,9 @@ def silver_atendimento_emergencia():
     df = df.filter(col("_row_num") == 1).drop("_row_num")
     return df
 
+#---------------------------------------------------------------------------------------------------------------------
 # materialização da tabela de CIRURGIAS REALIZADAS
+#---------------------------------------------------------------------------------------------------------------------
 @dlt.table(
     name="silver_cirurgias",
     comment="Tabela Silver de cirurgias realizadas - tipada e limpa, granularidade por procedimento"
@@ -228,7 +233,9 @@ def silver_cirurgias():
     )
     return df
 
+#---------------------------------------------------------------------------------------------------------------------
 # materialização da tabela EPIDEMIO (enrequecimento dos dados)
+#---------------------------------------------------------------------------------------------------------------------
 @dlt.table(
     name="silver_epidemio",
     comment="Tabela Silver epidemiologica - tipada e limpa, base de enriquecimento"
@@ -279,8 +286,9 @@ def silver_epidemio():
     )
     return df
 
+#---------------------------------------------------------------------------------------------------------------------
 # materialização da tabela de exames de imagem
-
+#---------------------------------------------------------------------------------------------------------------------
 @dlt.expect("flag_prescricao_admissao", "flag_prescricao_admissao IS NULL OR flag_prescricao_admissao = true")
 @dlt.expect("flag_admissao_inicio", "flag_admissao_inicio IS NULL OR flag_admissao_inicio = true")
 @dlt.expect("flag_inicio_termino", "flag_inicio_termino IS NULL OR flag_inicio_termino = true")
@@ -379,6 +387,56 @@ def siver_exames_imagem():
         "DIA", "MES", "MES_ANO",
         "NUMERO_ATENDIMENTO",
         "Contagem Linhas",
+        "_rescued_data", "_source_file", "_ingestion_timestamp"
+    )
+
+    return df
+
+#---------------------------------------------------------------------------------------------------------------------
+# materialização da tabela de exames laboratoriais
+#---------------------------------------------------------------------------------------------------------------------
+@dlt.expect("flag_pedido_coleta", "flag_pedido_coleta IS NULL OR flag_pedido_coleta = true")
+@dlt.expect("flag_coleta_laudo", "flag_coleta_laudo IS NULL OR flag_coleta_laudo = true")
+@dlt.table(
+    name="silver_exames_laboratoriais",
+    comment="Tabela silver de exames laboratoriais — tipada, limpa e com flags de consistência temporal"
+)
+def silver_exames_laboratoriais():
+    # leitura da tabela bronze_exames_laboratoriais_raw
+    df = spark.read.table("hospital_santa_rosa.bronze_fluxo.bronze_exames_laboratoriais_raw")
+
+    # renomeia ATEND para CD_ATENDIMENTO
+    df = df.withColumnRenamed("ATEND", "CD_ATENDIMENTO")
+
+    # converte colunas timestamps formato ISO (yyyy-MM-dd HH:mm:ss) para timestamp
+    colunas_timestamp = ["HR_PED_LAB", "DT_COLETA", "HR_LAUDO_LAB", "HR_CHAM_MED"]
+
+    for coluna in colunas_timestamp:
+        df = df.withColumn(coluna, to_timestamp(col(coluna), "yyyy-MM-dd HH:mm:ss"))
+    
+    # flags de consistência temporal (True = sequência correta, False = inconsistência encontrada)
+    df = (
+        df
+        .withColumn("flag_pedido_coleta",
+            when(
+                col("HR_PED_LAB").isNull() | col("DT_COLETA").isNull(), None
+            ).otherwise(col("HR_PED_LAB") <= col("DT_COLETA"))
+        )
+        .withColumn("flag_coleta_laudo",
+            when(
+                col("DT_COLETA").isNull() | col("HR_LAUDO_LAB").isNull(), None
+            ).otherwise(col("DT_COLETA") <= col("HR_LAUDO_LAB"))
+        )
+    )
+
+    # deduplicação por atendimento + exame
+    numero_linha = Window.partitionBy("CD_ATENDIMENTO", "CD_EXAME").orderBy(col("HR_PED_LAB").asc_nulls_last())
+    df = df.withColumn("linha", row_number().over(numero_linha))
+    df = df.filter(col("linha") == 1)
+    df = df.drop("linha")
+
+    # remove colunas desnecessárias
+    df = df.drop(
         "_rescued_data", "_source_file", "_ingestion_timestamp"
     )
 
