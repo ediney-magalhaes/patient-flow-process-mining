@@ -19,7 +19,7 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 
 ### Adicionado
 
-#### Sprint 1 — Bronze + Silver (em andamento)
+#### Sprint 1 — Bronze + Silver (concluído)
 
 - Volume `landing_zone` criado no Unity Catalog com subpastas por base
 - Auto Loader (`cloudFiles`) validado na Free Edition com `trigger(availableNow=True)`
@@ -45,14 +45,12 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - Tabela `silver_atendimento_emergencia` criada (6.236 registros) — tipada, deduplicada, com 4 flags de consistência temporal
 - Tabela `silver_cirurgias` criada (1.600 registros) — tipada, com 5 flags de consistência temporal, granularidade por procedimento
 - Tabela `silver_epidemio` criada (821 registros) — tipada, base de enriquecimento clínico
+- Tabela `silver_exames_imagem` criada (5.308 registros) — tipada, deduplicada, com 4 flags de consistência temporal
+- Tabela `silver_exames_laboratoriais` criada (20K registros) — tipada, deduplicada, com 2 flags de consistência temporal
+- Tabela `silver_internacoes` criada (867 registros) — tipada, deduplicada, com 1 flag de consistência temporal
+- Tabela `silver_movimentacoes` criada (3.6K registros) — tipada, deduplicada, event log de movimentações de leito
+- Pipeline `silver_transformations` migrado para Git folder — código versionado no repositório
 - `requirements.txt` com dependências do projeto
-
-
-#### Pendente neste sprint
-
-- Transformações Silver para as demais 4 tabelas Bronze (exames_imagem, exames_laboratoriais, internacoes, movimentacoes)
-- Validação pré-ingestão de schema dos CSVs (item futuro)
-- Correção de encoding dos CSVs na origem (pendente identificar encoding do sistema hospitalar)
 
 ### Corrigido
 
@@ -92,8 +90,8 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - Script de anonimização local
 - ADRs das decisões arquiteturais iniciais
 ### [0.2.0] — Sprint 1: Bronze + Silver
- 
-**Previsão:** a definir
+
+**Status:** concluído
  
 - Ingestão dos dados de emergência e internação na camada Bronze
 - Pipeline de transformação Bronze → Silver com validações de qualidade

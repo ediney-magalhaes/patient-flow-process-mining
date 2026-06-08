@@ -162,6 +162,70 @@ Lakeflow Declarative Pipelines (pipeline `silver_transformations`).
   - Remoção de colunas financeiras, colunas vazias, metadados de ingestão
 - **Expectation (drop):** `atendimento_valido` — descarta linhas com atendimento nulo
 
+### silver_exames_imagem
+
+- **Schema:** `hospital_santa_rosa.silver_fluxo`
+- **Granularidade:** 1 linha por exame de imagem por atendimento (deduplicada por CD_ATENDIMENTO + CODIGO_PROCEDIMENTO)
+- **Origem:** `bronze_exames_imagem_raw`
+- **Volume referência:** 5.308 registros (mar/2026)
+- **Transformações aplicadas:**
+  - Filtro por empresa (`Unidade = 'HSR'`)
+  - Substituição de `//` por null (marcador de ausência do sistema de radiologia)
+  - Tipagem de 22 colunas de timestamp formato brasileiro (`dd/MM/yyyy HH:mm`)
+  - Tipagem de `DATA_HORA_PRESCRICAO` com inserção de espaço via `regexp_replace` antes da conversão (formato sem espaço na origem)
+  - Tipagem de `DH_MAX` e `DH_MIN` formato ISO (`yyyy-MM-dd HH:mm:ss`)
+  - Tipagem de `CODIGO_PROCEDIMENTO` (string → integer)
+  - 4 flags de consistência temporal: `flag_prescricao_admissao`, `flag_admissao_inicio`, `flag_inicio_termino`, `flag_termino_liberado`
+  - Deduplicação por CD_ATENDIMENTO + CODIGO_PROCEDIMENTO (ROW_NUMBER, mantém DH_MIN mais antigo)
+  - Remoção de colunas redundantes e metadados de ingestão
+- **Expectations (monitoramento):** `flag_prescricao_admissao`, `flag_admissao_inicio`, `flag_inicio_termino`, `flag_termino_liberado`
+- **Nota:** `flag_termino_liberado` apresenta 100% de violações — laudo é liberado antes do término formal do exame no RIS. Comportamento a ser validado pelos gestores da área de imagem.
+
+### silver_exames_laboratoriais
+
+- **Schema:** `hospital_santa_rosa.silver_fluxo`
+- **Granularidade:** 1 linha por exame laboratorial por atendimento (deduplicada por CD_ATENDIMENTO + CD_EXAME)
+- **Origem:** `bronze_exames_laboratoriais_raw`
+- **Volume referência:** 20K registros (mar/2026)
+- **Transformações aplicadas:**
+  - Renomeação de `ATEND` → `CD_ATENDIMENTO` (padronização com demais tabelas Silver)
+  - Tipagem de 4 colunas de timestamp formato ISO (`yyyy-MM-dd HH:mm:ss`)
+  - 2 flags de consistência temporal: `flag_pedido_coleta`, `flag_coleta_laudo`
+  - Deduplicação por CD_ATENDIMENTO + CD_EXAME (ROW_NUMBER, mantém HR_PED_LAB mais antigo)
+  - Remoção de metadados de ingestão
+- **Expectations (monitoramento):** `flag_pedido_coleta`, `flag_coleta_laudo`
+
+### silver_internacoes
+
+- **Schema:** `hospital_santa_rosa.silver_fluxo`
+- **Granularidade:** 1 linha por internação (deduplicada por CD_INTERNACAO)
+- **Origem:** `bronze_internacoes_raw`
+- **Volume referência:** 867 registros (mar/2026)
+- **Transformações aplicadas:**
+  - Renomeação de `ATENDIMENTO` → `CD_INTERNACAO` (diferencia do CD_ATENDIMENTO da emergência)
+  - Tipagem de 2 colunas de timestamp formato ISO (`yyyy-MM-dd HH:mm:ss`)
+  - Tipagem de colunas numéricas (`IDADE`, `CD_ORIGEM` → integer)
+  - 1 flag de consistência temporal: `flag_atendimento_alta`
+  - Deduplicação por CD_INTERNACAO (ROW_NUMBER, mantém DT_HR_ATENDIMENTO mais antigo)
+  - Remoção de `CD_LEITO` (redundante com `LEITO`) e metadados de ingestão
+- **Expectations (monitoramento):** `flag_atendimento_alta`
+- **Nota:** `COD_PACIENTE` é o prontuário do paciente — identificador estável que permite rastrear a jornada entre emergência e internação na camada Gold
+
+### silver_movimentacoes
+
+- **Schema:** `hospital_santa_rosa.silver_fluxo`
+- **Granularidade:** 1 linha por movimentação de leito por internação
+- **Origem:** `bronze_movimentacoes_raw`
+- **Volume referência:** 3.6K registros (mar/2026)
+- **Transformações aplicadas:**
+  - Renomeação de `ATEND` → `CD_INTERNACAO` (padronização com silver_internacoes)
+  - Correção de encoding na coluna `UNIDADE` (`Âº` → `º`)
+  - Combinação de `DATA` + `HORA` em timestamp único `DT_HR_MOVIMENTACAO`
+  - Deduplicação por CD_INTERNACAO + DT_HR_MOVIMENTACAO + TIPO
+  - Remoção de colunas `DATA` e `HORA` (substituídas por `DT_HR_MOVIMENTACAO`) e metadados de ingestão
+- **Tipos de movimentação (`TIPO`):** `INTERNACAO`, `TRANSFER. DE`, `TRANSFER. PARA`, `ALTA`
+- **Expectations:** nenhuma (tabela de eventos pontuais sem pares de timestamps para validar)
+
 ---
 
 ## Camada Gold

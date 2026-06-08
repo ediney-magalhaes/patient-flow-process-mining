@@ -93,7 +93,7 @@ e refinamento.
 | **Ingestão** | Auto Loader (`cloudFiles`) | ✅ Sprint 1 |
 | **Transformação** | Lakeflow Declarative Pipelines | ✅ Sprint 1 |
 | **Process Mining** | PM4Py | 🔲 Sprint 3 |
-| **Governança** | Unity Catalog | 🔲 Sprint 0 |
+| **Governança** | Unity Catalog | ✅ Sprint 0 |
 | **BI** | AI/BI Dashboards | 🔲 Sprint 4 |
 | **App** | Streamlit | 🔲 Sprint 4 |
 | **CI/CD** | GitHub Actions | 🔲 Sprint 5 |
@@ -105,7 +105,7 @@ e refinamento.
 ## Roadmap
  
 - [x] **Sprint 0** — Fundação: setup Databricks, Unity Catalog, repositório Git
-- [ ] **Sprint 1** — Bronze + Silver: ingestão e limpeza dos dados (Bronze concluída — 8 tabelas; Silver em andamento — 4 de 8 tabelas)
+- [x] **Sprint 1** — Bronze + Silver: ingestão e limpeza dos dados (8 tabelas Bronze + 8 tabelas Silver concluídas)
 - [ ] **Sprint 2** — Gold: event log canônico no padrão XES
 - [ ] **Sprint 3** — Process Mining: descoberta de processos, gargalos, conformidade
 - [ ] **Sprint 4** — Entregáveis: dashboard executivo, app interativo
