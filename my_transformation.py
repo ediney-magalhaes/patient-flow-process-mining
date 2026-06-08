@@ -278,3 +278,108 @@ def silver_epidemio():
         "_rescued_data", "_source_file", "_ingestion_timestamp"
     )
     return df
+
+# materialização da tabela de exames de imagem
+
+@dlt.expect("flag_prescricao_admissao", "flag_prescricao_admissao IS NULL OR flag_prescricao_admissao = true")
+@dlt.expect("flag_admissao_inicio", "flag_admissao_inicio IS NULL OR flag_admissao_inicio = true")
+@dlt.expect("flag_inicio_termino", "flag_inicio_termino IS NULL OR flag_inicio_termino = true")
+@dlt.expect("flag_termino_liberado", "flag_termino_liberado IS NULL OR flag_termino_liberado = true")
+@dlt.table(
+    name="silver_exames_imagem",
+    comment="Tabela silver de exames de imagem — tipada, limpa e com flags de consistência temporal"
+)
+def siver_exames_imagem():
+    # leitura da tabela bronze_exames_imagem_raw
+    df = spark.read.table("hospital_santa_rosa.bronze_fluxo.bronze_exames_imagem_raw")
+    
+    # mantém apenas registros do HSR
+    df = df.filter(col("Unidade") == "HSR")
+
+    # substitui "//" por null
+    colunas_com_barra = [
+        "DATA_DITADO", "DATA_HORA_PRESCRICAO", "DATA_LAUDO",
+        "STATUS_A_REVISAR", "STATUS_A_TRANSCREVER", "STATUS_ADMITIDO",
+        "STATUS_APROVADO", "STATUS_CANCELADO_RIS", "STATUS_EDITAR_LAUDO",
+        "STATUS_FIM_PREPARO", "STATUS_INICIO_EXAME", "STATUS_INICIO_PREPARO",
+        "STATUS_LIBERADO", "STATUS_PACIENTE_RECONVOCADO", "STATUS_PAUSA_EXAME",
+        "STATUS_PENDENCIA", "STATUS_PENDENCIA_ANDAMENTO", "STATUS_PRELIMINAR",
+        "STATUS_PRONTO_RETIRAR", "STATUS_RETIRADO", "STATUS_TERMINO_EXAME",
+        "STATUS_WETREAD"
+    ]
+
+    for coluna in colunas_com_barra:
+        df = df.withColumn(coluna, when(col(coluna) == "//", None).otherwise(col(coluna)))
+    
+    # converte timestamps em formato (dd/MM/yyyy HH:mm)
+    colunas_timestamps_br = [
+    "DATA_DITADO", "DATA_LAUDO",
+    "STATUS_A_REVISAR", "STATUS_A_TRANSCREVER", "STATUS_ADMITIDO",
+    "STATUS_APROVADO", "STATUS_CANCELADO_RIS", "STATUS_EDITAR_LAUDO",
+    "STATUS_FIM_PREPARO", "STATUS_INICIO_EXAME", "STATUS_INICIO_PREPARO",
+    "STATUS_LIBERADO", "STATUS_PACIENTE_RECONVOCADO", "STATUS_PAUSA_EXAME",
+    "STATUS_PENDENCIA", "STATUS_PENDENCIA_ANDAMENTO", "STATUS_PRELIMINAR",
+    "STATUS_PRONTO_RETIRAR", "STATUS_RETIRADO", "STATUS_TERMINO_EXAME",
+    "STATUS_WETREAD"
+    ]
+
+    for coluna in colunas_timestamps_br:
+        df = df.withColumn(coluna, to_timestamp(col(coluna), "dd/MM/yyyy HH:mm"))
+    
+    # converte DATA_HORA_PRESCRICAO — insere espaco faltante antes de converter
+    df = df.withColumn(
+        "DATA_HORA_PRESCRICAO",
+        to_timestamp(
+            regexp_replace(col("DATA_HORA_PRESCRICAO"), r"(\d{2}/\d{2}/\d{4})(\d{2}:\d{2})", "$1 $2"),
+            "dd/MM/yyyy HH:mm"
+        )
+    )
+
+    # converte timestamps em ISO (yyyy-MM-dd HH:mm:ss) para timestamp
+    df = df.withColumn("DH_MAX", to_timestamp(col("DH_MAX"), "yyyy-MM-dd HH:mm:ss"))
+    df = df.withColumn("DH_MIN", to_timestamp(col("DH_MIN"), "yyyy-MM-dd HH:mm:ss"))
+
+    # converte coluna numérica de string para inteiro
+    df = df.withColumn("CODIGO_PROCEDIMENTO", col("CODIGO_PROCEDIMENTO").cast("int"))
+
+    # flags de consistência temporal
+    # TRUE = sequência correta, FALSE = inconsistência encontrada
+    df = (
+        df
+        .withColumn("flag_prescricao_admissao",
+            when(
+                col("DATA_HORA_PRESCRICAO").isNull() | col("STATUS_ADMITIDO").isNull(), None
+            ).otherwise(col("DATA_HORA_PRESCRICAO") <= col("STATUS_ADMITIDO"))
+        )
+        .withColumn("flag_admissao_inicio",
+            when(
+                col("STATUS_ADMITIDO").isNull() | col("STATUS_INICIO_EXAME").isNull(), None
+            ).otherwise(col("STATUS_ADMITIDO") <= col("STATUS_INICIO_EXAME"))
+        )
+        .withColumn("flag_inicio_termino",
+            when(
+                col("STATUS_INICIO_EXAME").isNull() | col("STATUS_TERMINO_EXAME").isNull(), None
+            ).otherwise(col("STATUS_INICIO_EXAME") <= col("STATUS_TERMINO_EXAME"))
+        )
+        .withColumn("flag_termino_liberado",
+            when(
+                col("STATUS_TERMINO_EXAME").isNull() | col("STATUS_LIBERADO").isNull(), None
+            ).otherwise(col("STATUS_TERMINO_EXAME") <= col("STATUS_LIBERADO"))
+        )
+    )
+
+    # deduplicação por atendimento - procedimento
+    numero_linha = Window.partitionBy("CD_ATENDIMENTO", "CODIGO_PROCEDIMENTO").orderBy(col("DH_MIN").asc_nulls_last())
+    df = df.withColumn("linha", row_number().over(numero_linha))
+    df = df.filter(col("linha") == 1)
+    df = df.drop("linha")
+
+    # remove colunas desnecessárias
+    df = df.drop(
+        "DIA", "MES", "MES_ANO",
+        "NUMERO_ATENDIMENTO",
+        "Contagem Linhas",
+        "_rescued_data", "_source_file", "_ingestion_timestamp"
+    )
+
+    return df
