@@ -485,3 +485,40 @@ def silver_internacoes():
     )
 
     return df
+
+#---------------------------------------------------------------------------------------------------------------------
+# materialização da tabela de movimentações
+#---------------------------------------------------------------------------------------------------------------------
+@dlt.table(
+    name="silver_movimentacoes",
+    comment="Tabela silver de movimentações de leito — tipada, limpa e deduplicada"
+)
+def silver_movimentacoes():
+    # leitura da bronze_movimentacoes_raw
+    df = spark.read.table("hospital_santa_rosa.bronze_fluxo.bronze_movimentacoes_raw")
+
+    # renomeia ATEND para CD_INTERNACAO
+    df = df.withColumnRenamed("ATEND", "CD_INTERNACAO")
+
+    # corrige enconding quebrado na coluna UNIDADE
+    df = df.withColumn("UNIDADE", regexp_replace(col("UNIDADE"), "Âº", "º"))
+
+    # combina DATA + HORA em timestamp único DT_HR_MOVIMENTACAO
+    df = df.withColumn(
+        "DT_HR_MOVIMENTACAO",
+        to_timestamp(concat_ws(" ", col("DATA"), col("HORA")), "yyyy-MM-dd HH:mm:ss")
+    )
+
+    # deduplicação por internação + timestamp + tipo de movimentação
+    numero_linha = Window.partitionBy("CD_INTERNACAO", "DT_HR_MOVIMENTACAO", "TIPO").orderBy(col("DT_HR_MOVIMENTACAO").asc_nulls_last())
+    df = df.withColumn("linha", row_number().over(numero_linha))
+    df = df.filter(col("linha") == 1)
+    df = df.drop("linha")
+
+    # remove colunas desnecessárias
+    df = df.drop(
+        "DATA", "HORA",
+        "_rescued_data", "_source_file", "_ingestion_timestamp"
+    )
+
+    return df
