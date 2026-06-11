@@ -72,20 +72,22 @@ def gold_events_internacoes():
     # cria a tabela com data e hora da internação
     df_internacao = df.withColumn("activity", F.lit("Internacao")) \
                       .withColumnRenamed("DT_HR_ATENDIMENTO", "timestamp") \
-                      .withColumnRenamed("CD_INTERNACAO", "case_id")
+                      .withColumnRenamed("CD_INTERNACAO", "case_id") \
+                      .select(
+                          "case_id", "activity", "timestamp", "lifecycle",
+                              "event_type", "case_type", "outcome", "resource",
+                              "location", "source"
+                      )
     
     # cria a tabela com data e hora da alta
     df_alta = df.withColumn("activity", F.lit("Alta da Internacao")) \
                 .withColumnRenamed("DT_HR_ALTA", "timestamp") \
-                .withColumnRenamed("CD_INTERNACAO", "case_id")
-
-    # faz união dos DataFrames
-    df_resultado = df_internacao.unionByName(df_alta)
-
+                .withColumnRenamed("CD_INTERNACAO", "case_id") \
+                .select(
+                    "case_id", "activity", "timestamp", "lifecycle",
+                        "event_type", "case_type", "outcome", "resource",
+                        "location", "source"
+                )
     # seleciona apenas as colunas do schema canônico na ordem correta
-    return df_resultado.select(
-        "case_id", "activity", "timestamp", "lifecycle",
-        "event_type", "case_type", "outcome", "resource",
-        "location", "source"
-    )
+    return df_internacao.unionByName(df_alta)
     
