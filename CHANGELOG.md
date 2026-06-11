@@ -97,11 +97,17 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - Pipeline de transformação Bronze → Silver com validações de qualidade
 - Tabelas Silver com event log padronizado
 ### [0.3.0] — Sprint 2: Gold (Event Log XES)
- 
+
 **Previsão:** a definir
- 
-- Tabela Gold com event log no formato canônico XES
-- Tabelas de KPIs e métricas agregadas
+
+- Pipeline `gold_transformations` criado no Databricks
+- 7 tabelas `gold_events_*` — uma por fonte Silver, normalizando eventos
+  para o schema canônico (`case_id`, `activity`, `timestamp`, `lifecycle`,
+  `event_type`, `case_type`, `outcome`, `resource`, `location`, `source`)
+- `gold_event_log` — event log unificado (UNION ALL das 7 tabelas) com
+  `duration_minutes` calculado por caso
+- `gold_case_attributes` — atributos do caso para enriquecimento analítico
+  (dados clínicos via `silver_epidemio`)
 ### [0.4.0] — Sprint 3: Process Mining
  
 **Previsão:** a definir
