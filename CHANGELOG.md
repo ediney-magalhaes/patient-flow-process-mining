@@ -19,6 +19,17 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 
 ### Adicionado
 
+#### Sprint 2 — Gold (Event Log XES) — em andamento
+
+- Pipeline `gold_transformations` criado no Databricks apontando para `gold_transformation.py`
+- Schema canônico do event log definido com 10 colunas: `case_id`, `activity`, `timestamp`,
+  `lifecycle`, `event_type`, `case_type`, `outcome`, `resource`, `location`, `source`
+- Mapeamento de eventos por fonte concluído — 7 tabelas Silver mapeadas, 38 eventos distintos identificados
+- Tabela `gold_events_movimentacoes` criada (3.6K registros)
+- Tabela `gold_events_internacoes` criada (1.7K registros)
+- Tabela `gold_events_altas` criada (2.7K registros)
+- Tabela `gold_events_cirurgias` criada (19K registros) — padrão de iteração sobre lista de eventos
+
 #### Sprint 1 — Bronze + Silver (concluído)
 
 - Volume `landing_zone` criado no Unity Catalog com subpastas por base

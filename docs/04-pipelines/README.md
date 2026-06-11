@@ -18,6 +18,20 @@ Documentação dos pipelines de ingestão, transformação e orquestração.
   - `silver_exames_laboratoriais` (20K registros, 2 flags temporais)
   - `silver_internacoes` (867 registros, 1 flag temporal)
   - `silver_movimentacoes` (3.6K registros, event log de leitos)
+- **`gold_transformations`** — Pipeline Lakeflow Declarative Pipelines para
+  transformações Silver → Gold. Materializa tabelas de eventos normalizados
+  no schema canônico XES e o event log unificado no schema `gold_fluxo`.
+  Código versionado no Git folder (`gold_transformation.py`) a partir de
+  11/06/2026. Tabelas implementadas:
+  - `gold_events_movimentacoes` (3.6K registros)
+  - `gold_events_internacoes` (1.7K registros)
+  - `gold_events_altas` (2.7K registros)
+  - `gold_events_cirurgias` (19K registros)
+  - `gold_events_emergencia` — pendente
+  - `gold_events_exames_imagem` — pendente
+  - `gold_events_exames_laboratoriais` — pendente
+  - `gold_event_log` — pendente
+  - `gold_case_attributes` — pendente
 
 ## Scripts de pré-processamento local
 

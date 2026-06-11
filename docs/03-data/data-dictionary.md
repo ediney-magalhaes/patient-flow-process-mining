@@ -230,4 +230,72 @@ Lakeflow Declarative Pipelines (pipeline `silver_transformations`).
 
 ## Camada Gold
 
-*A ser documentada no Sprint 2.*
+Event log canônico para Process Mining e atributos de caso para enriquecimento analítico.
+Todas as tabelas `gold_events_*` seguem o schema canônico XES com 10 colunas obrigatórias.
+
+### Schema canônico — tabelas gold_events_*
+
+| Coluna | Tipo | Obrigatoriedade | Descrição |
+|---|---|---|---|
+| `case_id` | string | obrigatório | Identificador do atendimento (hash SHA-256) |
+| `activity` | string | obrigatório | Nome da atividade do evento |
+| `timestamp` | timestamp | obrigatório | Momento em que o evento ocorreu |
+| `lifecycle` | string | obrigatório | Fase do evento (`start` ou `complete`) |
+| `event_type` | string | obrigatório | Categoria do evento (ex: `internacao`, `cirurgia`) |
+| `case_type` | string | obrigatório | Tipo de jornada do caso (ex: `internacao`, `cirurgico`) |
+| `outcome` | string | nullable | Desfecho do caso |
+| `resource` | string | nullable | Profissional ou sistema que executou a atividade |
+| `location` | string | nullable | Unidade ou sala onde o evento ocorreu |
+| `source` | string | obrigatório | Tabela Silver de origem do evento |
+
+### gold_events_movimentacoes
+
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Granularidade:** 1 linha por evento de movimentação de leito
+- **Origem:** `silver_movimentacoes`
+- **Volume referência:** 3.6K registros (mar/2026)
+- **Eventos:** `INTERNACAO`, `TRANSFER. DE`, `TRANSFER. PARA`, `ALTA`
+- **location:** coluna `UNIDADE` da Silver
+
+### gold_events_internacoes
+
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Granularidade:** 1 linha por evento de internação (2 eventos por atendimento)
+- **Origem:** `silver_internacoes`
+- **Volume referência:** 1.7K registros (mar/2026)
+- **Eventos:** `Internacao`, `Alta da Internacao`
+- **location:** coluna `UNIDADE` da Silver
+
+### gold_events_altas
+
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Granularidade:** 1 linha por evento de alta (3 eventos por atendimento)
+- **Origem:** `silver_altas`
+- **Volume referência:** 2.7K registros (mar/2026)
+- **Eventos:** `Prescricao de Alta`, `Alta Medica`, `Alta Hospitalar`
+- **location:** coluna `UNID_INT` da Silver
+
+### gold_events_cirurgias
+
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Granularidade:** 1 linha por evento cirúrgico (12 eventos por procedimento)
+- **Origem:** `silver_cirurgias`
+- **Volume referência:** 19K registros (mar/2026)
+- **Eventos:** `Aviso de Cirurgia`, `Agendamento de Cirurgia`, `Inicio Programado da Cirurgia`,
+  `Fim Programado da Cirurgia`, `Entrada na Sala Cirurgica`, `Inicio da Anestesia`,
+  `Inicio da Cirurgia`, `Fim da Cirurgia`, `Fim da Anestesia`, `Saida da Sala Cirurgica`,
+  `Inicio da Limpeza da Sala`, `Fim da Limpeza da Sala`
+- **location:** coluna `SALA_CIRURGIA` da Silver
+
+### gold_event_log
+
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Granularidade:** 1 linha por evento (UNION ALL de todas as tabelas `gold_events_*`)
+- **Status:** pendente
+
+### gold_case_attributes
+
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Granularidade:** 1 linha por atendimento
+- **Origem:** `silver_epidemio` + demais atributos relevantes
+- **Status:** pendente
