@@ -90,4 +90,56 @@ def gold_events_internacoes():
                 )
     # seleciona apenas as colunas do schema canônico na ordem correta
     return df_internacao.unionByName(df_alta)
+
+@dlt.table(
+    name="gold_events_altas",
+    comment="Eventos de altas no schema canônico do event log"
+)
+def gold_events_altas():
+
+    # leitura da tabela silver_altas
+    df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_altas")
+
+    # renomeia a coluna de unidade
+    df = df.withColumnRenamed("UNID_INT", "location")
+
+    # adiciona colunas fixas do schema canônico
+    df = df.withColumn("lifecycle", F.lit("complete"))
+    df = df.withColumn("event_type", F.lit("alta"))
+    df = df.withColumn("case_type", F.lit("alta"))
+    df = df.withColumn("outcome", F.lit(None).cast("string"))
+    df = df.withColumn("resource", F.lit(None).cast("string"))
+    df = df.withColumn("source", F.lit("silver_altas"))
+
+    # cria o DataFrame de prescrição da alta
+    df_prescricao_alta = df.withColumn("activity", F.lit("Prescricao de alta")) \
+                           .withColumnRenamed("DT_HR_PRE_MED", "timestamp") \
+                           .withColumnRenamed("ATENDIMENTO", "case_id") \
+                           .select(
+                               "case_id", "activity", "timestamp", "lifecycle",
+                               "event_type", "case_type", "outcome", "resource",
+                               "location", "source"
+                           )
     
+    # cria o DataFrame de alta médica
+    df_alta_medica = df.withColumn("activity", F.lit("Alta médica")) \
+                       .withColumnRenamed("DT_HR_ALTA_MEDICA", "timestamp") \
+                       .withColumnRenamed("ATENDIMENTO", "case_id") \
+                       .select(
+                           "case_id", "activity", "timestamp", "lifecycle",
+                            "event_type", "case_type", "outcome", "resource",
+                            "location", "source"
+                       )
+    
+    # cria o DataFrame de alta hospitalar
+    df_alta_hospitalar = df.withColumn("activity", F.lit("Alta Hospitalar")) \
+                           .withColumnRenamed("DT_HR_ALTA_FINAL", "timestamp") \
+                           .withColumnRenamed("ATENDIMENTO", "case_id") \
+                           .select(
+                               "case_id", "activity", "timestamp", "lifecycle",
+                                "event_type", "case_type", "outcome", "resource",
+                                "location", "source"
+                           )
+    
+    # seleciona apenas as colunas do schema canônico na ordem correta
+    return df_prescricao_alta.unionByName(df_alta_medica).unionByName(df_alta_hospitalar)
