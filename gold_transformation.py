@@ -14,3 +14,38 @@
 import dlt
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
+
+#------------------------------------------------------------------------------
+# gold_events_movimentacoes
+# Normaliza eventos de movimentação de leito para o schema canônico
+#-----------------------------------------------------------------------------
+
+@dlt.table(
+    name="gold_events_movimentacoes",
+    comment="Eventos de movimentação de leito no schema canônico do event log"
+)
+def gold_events_movimentacoes():
+
+    # leitura da tabela silver movimentacoes
+    df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_movimentacoes")
+
+    # renomeira colunas existentes para o schema canônico
+    df = df.withColumnRenamed("CD_INTERNACAO", "case_id")
+    df = df.withColumnRenamed("TIPO", "activity")
+    df = df.withColumnRenamed("DT_HR_MOVIMENTACAO", "timestamp")
+    df = df.withColumnRenamed("UNIDADE", "location")
+
+    # adiciona colunas fixas do schema canônico
+    df = df.withColumn("lifecycle", F.lit("complete"))
+    df = df.withColumn("event_type", F.lit("movimentacao"))
+    df = df.withColumn("case_type", F.lit("internacao"))
+    df = df.withColumn("outcome", F.lit(None).cast("string"))
+    df = df.withColumn("resource", F.lit(None).cast("string"))
+    df = df.withColumn("source", F.lit("silver_movimentacoes"))
+
+    # seleciona apenas as colunas do schema canônico na ordem correta
+    return df.select(
+        "case_id", "activity", "timestamp", "lifecycle",
+        "event_type", "case_type", "outcome", "resource",
+        "location", "source"
+    )
