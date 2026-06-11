@@ -143,3 +143,59 @@ def gold_events_altas():
     
     # seleciona apenas as colunas do schema canônico na ordem correta
     return df_prescricao_alta.unionByName(df_alta_medica).unionByName(df_alta_hospitalar)
+
+@dlt.table(
+    name="gold_events_cirurgias",
+    comment="Eventos de cirurgias no schema canônico do event log"
+)
+def gold_events_cirurgias():
+
+    # leitura da tabela silver_cirurgias
+    df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_cirurgias")
+
+    # renomeia a coluna de sala cirúrgica
+    df = df.withColumnRenamed("SALA_CIRURGIA", "location")
+
+    # lista de eventos
+    eventos = [
+        ("DT_AVISO_CIRURGIA",        "Aviso de Cirurgia"),
+        ("DT_AGENDA_CIR",            "Agendamento de Cirurgia"),
+        ("INICIO_PROGRAMADO_CIRURGIA", "Inicio Programado da Cirurgia"),
+        ("FINAL_PROGRAMADO_CIRURGIA",  "Fim Programado da Cirurgia"),
+        ("DT_HR_ENTRADA_SALA_CIRURG",  "Entrada na Sala Cirurgica"),
+        ("INICIO_ANESTESIA",           "Inicio da Anestesia"),
+        ("DT_INICIO_CIRURGIA",         "Inicio da Cirurgia"),
+        ("DT_FIM_CIRURGIA",            "Fim da Cirurgia"),
+        ("FIM_ANESTESIA",              "Fim da Anestesia"),
+        ("DT_HR_SAIDA_SALA_CIRURG",    "Saida da Sala Cirurgica"),
+        ("INICIO_LIMPEZA",             "Inicio da Limpeza da Sala"),
+        ("FIM_LIMPEZA",                "Fim da Limpeza da Sala"),
+    ]
+
+    # adiciona colunas fixas do schema canônico
+    df = df.withColumn("lifecycle", F.lit("complete"))
+    df = df.withColumn("event_type", F.lit("cirurgia"))
+    df = df.withColumn("case_type", F.lit("cirurgico"))
+    df = df.withColumn("outcome", F.lit(None).cast("string"))
+    df = df.withColumn("resource", F.lit(None).cast("string"))
+    df = df.withColumn("source", F.lit("silver_cirurgias"))
+
+    # itera a lista de eventos para criar os DataFrames
+    
+    df_resultado = None
+
+    for coluna_timestamp, nome_atividade in eventos:
+        df_evento = df.withColumn("activity", F.lit(nome_atividade)) \
+                      .withColumnRenamed(coluna_timestamp, "timestamp") \
+                      .withColumnRenamed("ATENDIMENTO", "case_id") \
+                      .select(
+                          "case_id", "activity", "timestamp", "lifecycle",
+                          "event_type", "case_type", "outcome", "resource",
+                          "location", "source"
+                        ) 
+        if df_resultado is None:
+            df_resultado = df_evento
+        else:
+            df_resultado = df_resultado.unionByName(df_evento)
+    
+    return df_resultado
