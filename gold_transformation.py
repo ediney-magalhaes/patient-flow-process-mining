@@ -346,3 +346,34 @@ def gold_events_exames_laboratoriais():
     
     return df_resultado
                       
+@dlt.table(
+    name="gold_event_log",
+    comment="Evento com a união de todas as tabelas gold_events"
+)
+def gold_event_log():
+
+    # leitura das sete tabelas gold_events
+    df_altas = dlt.read("gold_events_altas")
+    df_cirurgias = dlt.read("gold_events_cirurgias")
+    df_emergencia = dlt.read("gold_events_emergencia")
+    df_imagem = dlt.read("gold_events_exames_imagem")
+    df_laborarorio = dlt.read("gold_events_exames_laboratoriais")
+    df_internacoes = dlt.read("gold_events_internacoes")
+    df_movimentacoes = dlt.read("gold_events_movimentacoes")
+
+    # UNION ALL com unionByName
+    df = df_altas.unionByName(df_cirurgias) \
+                 .unionByName(df_emergencia) \
+                 .unionByName(df_imagem) \
+                 .unionByName(df_laborarorio)\
+                 .unionByName(df_internacoes) \
+                 .unionByName(df_movimentacoes)
+    
+    # cálculo da duração de tempo entre cada evento
+    janela_caso = Window.partitionBy("case_id")
+
+    df = df.withColumn("duration_minutes", ((F.unix_timestamp(F.max("timestamp").over(janela_caso)) - 
+                                           F.unix_timestamp(F.min("timestamp").over(janela_caso)))
+                                           / 60).cast("int")
+    )
+    return df
