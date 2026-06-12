@@ -377,3 +377,56 @@ def gold_event_log():
                                            / 60).cast("int")
     )
     return df
+
+@dlt.table(
+    name="gold_case_attributes",
+    comment="Evento com atributos de enriquecimento de análise para o event_log canônico (gold_event_log)"
+)
+def gold_case_attributes():
+
+    # leitura das fontes
+    df_epidemio = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_epidemio")
+    df_emergencia = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_atendimento_emergencia")
+
+    # DataFrame da internação
+    df_internacao = df_epidemio.select(
+        F.col("atendimento").alias("case_id"),
+        F.col("tp_atendimento").alias("case_type"),
+        F.col("idade"),
+        F.col("sexo"),
+        F.col("convenio"),
+        F.col("especialidade"),
+        F.col("cid_1_principal").alias("cid_principal"),
+        F.col("motivo_alta"),
+        F.lit(None).cast("string").alias("classificacao_risco"),
+        F.col("tipo_internacao"),
+        F.col("nr_dias"),
+        F.col("qtd_passagens_uti"),
+        F.col("PREVISAO_COMPLEXIDADE").alias("complexidade"),
+        F.col("PREVISAO_GRUPO").alias("grupo_diagnostico"),
+        F.col("cirurgia").alias("teve_cirurgia")
+    )
+
+    # Dataframe da emergência
+    df_emergencia = df_emergencia.select(
+        F.col("CD_ATENDIMENTO").alias("case_id"),
+        F.lit("emergencia").alias("case_type"),
+        F.col("IDADE_CALCULADA").alias("idade"),
+        F.col("SEXO").alias("sexo"),
+        F.col("CONVENIO").alias("convenio"),
+        F.col("ESPECIALIDADE").alias("especialidade"),
+        F.col("CID").alias("cid_principal"),
+        F.col("MOTIVO_ALTA").alias("motivo_alta"),
+        F.col("COR_CLASSIF").alias("classificacao_risco"),
+        F.lit(None).cast("string").alias("tipo_internacao"),
+        F.lit(None).cast("string").alias("complexidade"),
+        F.lit(None).cast("string").alias("grupo_diagnostico"),
+        F.lit(None).cast("string").alias("teve_cirurgia"),
+        F.lit(None).cast("int").alias("nr_dias"),
+        F.lit(None).cast("int").alias("qtd_passagens_uti")
+    )
+
+    # UNION ALL com unionByName
+    df = df_internacao.unionByName(df_emergencia)
+
+    return df
