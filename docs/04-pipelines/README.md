@@ -27,11 +27,11 @@ Documentação dos pipelines de ingestão, transformação e orquestração.
   - `gold_events_internacoes` (1.7K registros)
   - `gold_events_altas` (2.7K registros)
   - `gold_events_cirurgias` (19K registros)
-  - `gold_events_emergencia` — pendente
-  - `gold_events_exames_imagem` — pendente
-  - `gold_events_exames_laboratoriais` — pendente
-  - `gold_event_log` — pendente
-  - `gold_case_attributes` — pendente
+  - `gold_events_emergencia` (50K registros)
+  - `gold_events_exames_imagem` (53K registros) — `case_type` dinâmico via `TIPO_ATENDIMENTO`
+  - `gold_events_exames_laboratoriais` (60K registros)
+  - `gold_event_log` (190K registros) — UNION ALL das 7 fontes com `duration_minutes`
+  - `gold_case_attributes` (7.1K registros) — 15 atributos clínicos e demográficos
 
 ## Scripts de pré-processamento local
 

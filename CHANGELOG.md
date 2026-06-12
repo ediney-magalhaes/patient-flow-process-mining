@@ -19,16 +19,21 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 
 ### Adicionado
 
-#### Sprint 2 — Gold (Event Log XES) — em andamento
+#### Sprint 2 — Gold (Event Log XES) — concluído
 
 - Pipeline `gold_transformations` criado no Databricks apontando para `gold_transformation.py`
-- Schema canônico do event log definido com 10 colunas: `case_id`, `activity`, `timestamp`,
-  `lifecycle`, `event_type`, `case_type`, `outcome`, `resource`, `location`, `source`
+- Schema canônico do event log definido com 11 colunas: `case_id`, `activity`, `timestamp`,
+  `lifecycle`, `event_type`, `case_type`, `outcome`, `resource`, `location`, `source`, `duration_minutes`
 - Mapeamento de eventos por fonte concluído — 7 tabelas Silver mapeadas, 38 eventos distintos identificados
 - Tabela `gold_events_movimentacoes` criada (3.6K registros)
 - Tabela `gold_events_internacoes` criada (1.7K registros)
 - Tabela `gold_events_altas` criada (2.7K registros)
 - Tabela `gold_events_cirurgias` criada (19K registros) — padrão de iteração sobre lista de eventos
+- Tabela `gold_events_emergencia` criada (50K registros)
+- Tabela `gold_events_exames_imagem` criada (53K registros) — `case_type` dinâmico via `TIPO_ATENDIMENTO`
+- Tabela `gold_events_exames_laboratoriais` criada (60K registros)
+- Tabela `gold_event_log` criada (190K registros) — UNION ALL das 7 fontes com `duration_minutes`
+- Tabela `gold_case_attributes` criada (7.1K registros) — 15 atributos clínicos e demográficos
 
 #### Sprint 1 — Bronze + Silver (concluído)
 
@@ -109,7 +114,7 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - Tabelas Silver com event log padronizado
 ### [0.3.0] — Sprint 2: Gold (Event Log XES)
 
-**Previsão:** a definir
+**Status:** concluído
 
 - Pipeline `gold_transformations` criado no Databricks
 - 7 tabelas `gold_events_*` — uma por fonte Silver, normalizando eventos

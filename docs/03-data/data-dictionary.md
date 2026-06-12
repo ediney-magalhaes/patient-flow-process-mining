@@ -247,6 +247,7 @@ Todas as tabelas `gold_events_*` seguem o schema canônico XES com 10 colunas ob
 | `resource` | string | nullable | Profissional ou sistema que executou a atividade |
 | `location` | string | nullable | Unidade ou sala onde o evento ocorreu |
 | `source` | string | obrigatório | Tabela Silver de origem do evento |
+| `duration_minutes` | int | nullable | Duração total do caso em minutos (diferença entre primeiro e último evento) |
 
 ### gold_events_movimentacoes
 
@@ -287,15 +288,80 @@ Todas as tabelas `gold_events_*` seguem o schema canônico XES com 10 colunas ob
   `Inicio da Limpeza da Sala`, `Fim da Limpeza da Sala`
 - **location:** coluna `SALA_CIRURGIA` da Silver
 
+### gold_events_emergencia
+
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Granularidade:** 1 linha por evento de emergência (8 eventos por atendimento)
+- **Origem:** `silver_atendimento_emergencia`
+- **Volume referência:** 50K registros (mar/2026)
+- **Eventos:** `Chegada ao Pronto-Socorro`, `Início da Triagem`, `Classificação de Risco`,
+  `Início do Cadastro`, `Fim do Cadastro`, `Início da Consulta Médica`,
+  `Fim da Consulta Médica`, `Alta da Emergência`
+- **location:** null — sem coluna de localização física disponível na Silver
+- **Nota:** CID registrado nesta tabela representa hipótese diagnóstica de entrada,
+  não diagnóstico confirmado
+
+### gold_events_exames_imagem
+
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Granularidade:** 1 linha por evento de exame de imagem (10 eventos por exame)
+- **Origem:** `silver_exames_imagem`
+- **Volume referência:** 53K registros (mar/2026)
+- **Eventos:** `Prescrição do Exame de Imagem`, `Admissão no RIS`,
+  `Liberação para Início do Exame`, `Início do Preparo`, `Fim do Preparo`,
+  `Início do Exame`, `Término do Exame de Imagem`, `Ditado do Laudo`,
+  `Laudo Registrado no Sistema`, `Laudo Aprovado`
+- **case_type:** dinâmico via coluna `TIPO_ATENDIMENTO` da Silver (`Internação`,
+  `Urgência`, `Ambulatório`, `Externo`)
+- **location:** null — sem coluna de localização física disponível na Silver
+
+### gold_events_exames_laboratoriais
+
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Granularidade:** 1 linha por evento de exame laboratorial (3 eventos por exame)
+- **Origem:** `silver_exames_laboratoriais`
+- **Volume referência:** 60K registros (mar/2026)
+- **Eventos:** `Pedido de Exame Laboratorial`, `Coleta do Exame Laboratorial`,
+  `Laudo do Exame Laboratorial`
+- **case_type:** `emergencia` — todos os exames laboratoriais desta base são
+  de pacientes de emergência (confirmado pela presença de `CLASSI_RISCO` em todos os registros)
+- **location:** null — sem coluna de localização física disponível na Silver
+
 ### gold_event_log
 
 - **Schema:** `hospital_santa_rosa.gold_fluxo`
 - **Granularidade:** 1 linha por evento (UNION ALL de todas as tabelas `gold_events_*`)
-- **Status:** pendente
+- **Origem:** `gold_events_movimentacoes`, `gold_events_internacoes`, `gold_events_altas`,
+  `gold_events_cirurgias`, `gold_events_emergencia`, `gold_events_exames_imagem`,
+  `gold_events_exames_laboratoriais`
+- **Volume referência:** 190K registros (mar/2026)
+- **Colunas adicionais:** `duration_minutes` — duração total do caso em minutos,
+  calculada via Window function particionada por `case_id`
+- **Nota:** tabela central do projeto — fonte primária para análises de Process Mining
+  com PM4Py no Sprint 3
 
 ### gold_case_attributes
 
 - **Schema:** `hospital_santa_rosa.gold_fluxo`
 - **Granularidade:** 1 linha por atendimento
-- **Origem:** `silver_epidemio` + demais atributos relevantes
-- **Status:** pendente
+- **Origem:** `silver_epidemio` (casos de internação) + `silver_atendimento_emergencia` (casos de emergência)
+- **Volume referência:** 7.1K registros (mar/2026)
+- **Colunas:**
+
+| Coluna | Tipo | Fonte internação | Fonte emergência | Descrição |
+|---|---|---|---|---|
+| `case_id` | string | `atendimento` | `CD_ATENDIMENTO` | Identificador do caso |
+| `case_type` | string | `tp_atendimento` | `"emergencia"` | Tipo de jornada |
+| `idade` | int | `idade` | `IDADE_CALCULADA` | Idade do paciente |
+| `sexo` | string | `sexo` | `SEXO` | Sexo do paciente |
+| `convenio` | string | `convenio` | `CONVENIO` | Convênio do paciente |
+| `especialidade` | string | `especialidade` | `ESPECIALIDADE` | Especialidade médica |
+| `cid_principal` | string | `cid_1_principal` | `CID` | CID principal — para internação é diagnóstico confirmado; para emergência é hipótese diagnóstica de entrada |
+| `motivo_alta` | string | `motivo_alta` | `MOTIVO_ALTA` | Motivo da alta |
+| `classificacao_risco` | string | null | `COR_CLASSIF` | Classificação de risco (somente emergência) |
+| `tipo_internacao` | string | `tipo_internacao` | null | Tipo de internação (somente internação) |
+| `nr_dias` | int | `nr_dias` | null | Número de dias de internação |
+| `qtd_passagens_uti` | int | `qtd_passagens_uti` | null | Quantidade de passagens pela UTI |
+| `complexidade` | string | `PREVISAO_COMPLEXIDADE` | null | Complexidade prevista do caso |
+| `grupo_diagnostico` | string | `PREVISAO_GRUPO` | null | Grupo diagnóstico previsto |
+| `teve_cirurgia` | string | `cirurgia` | null | Indica se houve cirurgia |
