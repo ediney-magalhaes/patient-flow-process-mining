@@ -199,3 +199,54 @@ def gold_events_cirurgias():
             df_resultado = df_resultado.unionByName(df_evento)
     
     return df_resultado
+
+@dlt.table(
+    name="gold_events_emergencia",
+    comment="Eventos da emergência no schema canônico do event log"
+)
+def gold_events_emergencia():
+
+    # leitura da tabela silver_emergencia
+    df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_atendimento_emergencia")
+
+    # renomeia a coluna local de procedencia
+    df = df.withColumnRenamed("LOCAL_PROCED", "location")
+
+    # lista de eventos
+    eventos = [
+        ("DT_HR_TOTEM_RECEP",          "Chegada ao Pronto-Socorro"),
+        ("INICIO_CLASSIFICACAO",       "Início da Triagem"),
+        ("DT_HR_CLASSIF_RISCO",        "Classificação de Risco"),
+        ("DH_CADASTRO_RECEPCAO",       "Início do Cadastro"),
+        ("FIM_CAD_RECEP",              "Fim do Cadastro"),
+        ("INI_ATD_MEDICO",             "Início da Consulta Médica"),
+        ("FIM_ATD_MEDICO",             "Fim da Consulta Médica"),
+        ("DT_HR_ALTA",                 "Alta da Emergência"),
+    ]
+
+    # adiciona colunas fixas do schema canônico
+    df = df.withColumn("lifecycle", F.lit("complete"))
+    df = df.withColumn("event_type", F.lit("emergencia"))
+    df = df.withColumn("case_type", F.lit("emergencia"))
+    df = df.withColumn("outcome", F.lit(None).cast("string"))
+    df = df.withColumn("resource", F.lit(None).cast("string"))
+    df = df.withColumn("source", F.lit("silver_atendimento_emergencia"))
+
+    # itera sobre os eventos e constrói os DataFrames
+    df_resultado = None
+    for coluna_timestamp, nome_atividade in eventos:
+        df_evento = df.withColumn("activity", F.lit(nome_atividade)) \
+                      .withColumnRenamed(coluna_timestamp, "timestamp") \
+                      .withColumnRenamed("CD_ATENDIMENTO", "case_id") \
+                      .select(
+                          "case_id", "activity", "timestamp", "lifecycle",
+                          "event_type", "case_type", "outcome", "resource",
+                          "location", "source"
+                        )
+        if df_resultado is None:
+            df_resultado = df_evento
+        else:
+            df_resultado = df_resultado.unionByName(df_evento)
+    
+    return df_resultado
+        
