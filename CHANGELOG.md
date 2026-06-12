@@ -125,11 +125,30 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - `gold_case_attributes` — atributos do caso para enriquecimento analítico
   (dados clínicos via `silver_epidemio`)
 ### [0.4.0] — Sprint 3: Process Mining
- 
+
 **Previsão:** a definir
- 
-- Descoberta automatizada de processos com PM4Py
-- Análise de variantes, gargalos e conformidade
+
+#### Fase 1 — Fundamentos e ambiente
+- Instalação e configuração do PM4Py no Databricks Free Edition
+- Conceitos fundamentais: event log, trace, variant, Petri net, process model
+- Carregamento do `gold_event_log` do Delta Lake para o formato PM4Py
+
+#### Fase 2 — Descoberta de processos
+- Estudo comparativo dos algoritmos: Alpha Miner, Heuristic Miner, Inductive Miner
+- Decisão arquitetural: qual algoritmo usar e por quê (ADR-0008)
+- Geração do process model do fluxo de emergência
+- Geração do process model do fluxo de internação
+
+#### Fase 3 — Análises
+- Variant analysis: identificação e ranking das variantes de processo
+- Bottleneck detection: tempos de espera entre atividades
+- Conformance checking: token replay vs alignment (ADR-0009)
+- Social Network Analysis: handover of work entre recursos e especialidades
+- Performance Spectrum: variação temporal do desempenho do processo
+
+#### Fase 4 — Exportação
+- Exportação do event log no formato XES
+- Persistência dos modelos descobertos no schema `gold_fluxo`
 ### [0.5.0] — Sprint 4: Entregáveis
  
 **Previsão:** a definir

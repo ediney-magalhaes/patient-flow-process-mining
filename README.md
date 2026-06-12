@@ -91,7 +91,7 @@ e refinamento.
 | **Plataforma** | Databricks Free Edition (AWS) | ✅ Configurado |
 | **Storage** | Delta Lake + Unity Catalog | ✅ Sprint 0 |
 | **Ingestão** | Auto Loader (`cloudFiles`) | ✅ Sprint 1 |
-| **Transformação** | Lakeflow Declarative Pipelines | ✅ Sprint 1 |
+| **Transformação** | Lakeflow Declarative Pipelines | ✅ Sprint 1 + Sprint 2 |
 | **Process Mining** | PM4Py | 🔲 Sprint 3 |
 | **Governança** | Unity Catalog | ✅ Sprint 0 |
 | **BI** | AI/BI Dashboards | 🔲 Sprint 4 |
@@ -106,7 +106,7 @@ e refinamento.
  
 - [x] **Sprint 0** — Fundação: setup Databricks, Unity Catalog, repositório Git
 - [x] **Sprint 1** — Bronze + Silver: ingestão e limpeza dos dados (8 tabelas Bronze + 8 tabelas Silver concluídas)
-- [ ] **Sprint 2** — Gold: event log canônico no padrão XES
+- [x] **Sprint 2** — Gold: event log canônico no padrão XES (9 tabelas Gold, 190K eventos)
 - [ ] **Sprint 3** — Process Mining: descoberta de processos, gargalos, conformidade
 - [ ] **Sprint 4** — Entregáveis: dashboard executivo, app interativo
 - [ ] **Sprint 5** — CI/CD, documentação completa, apresentação executiva
