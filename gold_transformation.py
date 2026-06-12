@@ -301,3 +301,48 @@ def gold_events_exames_imagem():
             df_resultado = df_resultado.unionByName(df_eventos)
     
     return df_resultado
+
+@dlt.table(
+    name="gold_events_exames_laboratoriais",
+    comment="Eventos do laboratório no schema canônico do event log"
+)
+def gold_events_exames_laboratoriais():
+
+    # leitura da tabela silver_exames_laboratoriais
+    df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_exames_laboratoriais")
+
+    # lista de eventos
+    eventos = [
+        ("HR_PED_LAB",      "Pedido de Exame Laboratorial"),
+        ("DT_COLETA",       "Coleta do Exame Laboratorial"),
+        ("HR_LAUDO_LAB",    "Laudo do Exame Laboratorial"),
+    ]
+
+    # adiciona colunas fixas do schema canônico
+    df = df.withColumn("lifecycle", F.lit("complete"))
+    df = df.withColumn("event_type", F.lit("exames laboratoriais"))
+    df = df.withColumn("case_type", F.lit("emergencia"))
+    df = df.withColumn("outcome", F.lit(None).cast("string"))
+    df = df.withColumn("resource", F.lit(None).cast("string"))
+    df = df.withColumn("location", F.lit(None).cast("string"))
+    df = df.withColumn("source", F.lit("silver_exames_laboratoriais"))
+
+    # itera sobre a lista de eventos e cria os DataFrames
+    df_resultado = None
+    for coluna_timestamp, nome_atividade in eventos:
+        df_evento = df.withColumn("activity", F.lit(nome_atividade)) \
+                      .withColumnRenamed(coluna_timestamp, "timestamp") \
+                      .withColumnRenamed("CD_ATENDIMENTO", "case_id") \
+                      .select(
+                          "case_id", "activity", "timestamp", "lifecycle",
+                          "event_type", "case_type", "outcome", "resource",
+                          "location", "source"
+                      )
+        
+        if df_resultado is None:
+            df_resultado = df_evento
+        else:
+            df_resultado = df_resultado.unionByName(df_evento)
+    
+    return df_resultado
+                      
