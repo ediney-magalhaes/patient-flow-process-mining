@@ -249,4 +249,55 @@ def gold_events_emergencia():
             df_resultado = df_resultado.unionByName(df_evento)
     
     return df_resultado
+
+@dlt.table(
+    name="gold_events_exames_imagem",
+    comment="Eventos da radiologia no schema canônico do event log"
+)
+def gold_events_exames_imagem():
+
+    # leitura da tabela silver_exames_imagem
+    df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_exames_imagem")
+
+    # lista de eventos
+    eventos = [
+        ("DATA_HORA_PRESCRICAO",       "Prescrição do Exame de Imagem"),
+        ("STATUS_ADMITIDO",            "Admissão no RIS"),
+        ("STATUS_LIBERADO",            "Liberação para Início do Exame"),
+        ("STATUS_INICIO_PREPARO",      "Início do Preparo"),
+        ("STATUS_FIM_PREPARO",         "Fim do Preparo"),
+        ("STATUS_INICIO_EXAME",        "Início do Exame"),
+        ("STATUS_TERMINO_EXAME",       "Término do Exame de Imagem"),
+        ("DATA_DITADO",                "Ditado do Laudo"),
+        ("DATA_LAUDO",                 "Laudo Registrado no Sistema"),
+        ("STATUS_APROVADO",            "Laudo Aprovado"),
+    ]
+
+    # adiciona colunas fixas do schema canônico
+    df = df.withColumn("lifecycle", F.lit("complete"))
+    df = df.withColumn("event_type", F.lit("exames de imagem"))
+    df = df.withColumn("case_type", F.col("TIPO_ATENDIMENTO"))
+    df = df.withColumn("outcome", F.lit(None).cast("string"))
+    df = df.withColumn("resource", F.lit(None).cast("string"))
+    df = df.withColumn("location", F.lit(None).cast("string"))
+    df = df.withColumn("source", F.lit("silver_exames_imagem"))
+
+    # itera sobre a lista de eventos para construir os DataFrames
+    df_resultado = None
+
+    for coluna_timestamp, nome_atividade in eventos:
+        df_eventos = df.withColumn("activity", F.lit(nome_atividade)) \
+                       .withColumnRenamed(coluna_timestamp, "timestamp") \
+                       .withColumnRenamed("CD_ATENDIMENTO", "case_id") \
+                       .select(
+                           "case_id", "activity", "timestamp", "lifecycle",
+                          "event_type", "case_type", "outcome", "resource",
+                          "location", "source"
+                       )
         
+        if df_resultado is None:
+            df_resultado = df_eventos
+        else:
+            df_resultado = df_resultado.unionByName(df_eventos)
+    
+    return df_resultado
