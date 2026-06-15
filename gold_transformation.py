@@ -430,3 +430,42 @@ def gold_case_attributes():
     df = df_internacao.unionByName(df_emergencia)
 
     return df
+
+@dlt.table(
+    name="gold_data_quality",
+    comment="Tabela sobre a qualidade dos dados com medição da cobertura dos timestamps"
+)
+def gold_data_quality():
+
+    # leitura do gold_event_log
+    df = dlt.read("gold_event_log")
+    
+    # cálculo da cobertura de timestamp por paciente
+    df_atividade = df.groupby("source", "activity") \
+                     .agg(F.count("*").alias("total"),
+                          F.count("timestamp").alias("registros_com_timestamp"),
+                          F.round((F.count("timestamp") / F.count("*") * 100), 2).alias("cobertura_perc")) \
+                     .withColumn("registros_sem_timestamp", F.col("total") - F.col("registros_com_timestamp")) \
+                     .withColumn("data_referencia", F.current_date()) \
+                     .withColumn("nivel", F.lit("atividade")) \
+                     .withColumnRenamed("source", "fonte") \
+                     .withColumnRenamed("activity", "atividade")
+    
+    # agrupamento de casos nulos
+    df_caso = df.groupby("case_id") \
+                .agg(F.min(F.col("timestamp").isNull().cast("int")).alias("tem_timestamp_nulo"))
+    
+    # agrupamento dos resultados globais
+    df_global = df_caso.agg(
+        F.sum((F.col("tem_timestamp_nulo") == 0).cast("int")).alias("registros_com_timestamp"),
+        F.sum((F.col("tem_timestamp_nulo") == 1).cast("int")).alias("registros_sem_timestamp"),
+        F.count("*").alias("total")
+    ) \
+    .withColumn("cobertura_perc", F.round(F.col("registros_com_timestamp") / F.col("total") * 100, 2)) \
+    .withColumn("data_referencia", F.current_date()) \
+    .withColumn("nivel", F.lit("caso")) \
+    .withColumn("fonte", F.lit(None).cast("string")) \
+    .withColumn("atividade", F.lit(None).cast("string"))
+    
+    df = df_atividade.unionByName(df_global)
+    return df
