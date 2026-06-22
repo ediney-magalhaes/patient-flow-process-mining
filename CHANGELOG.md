@@ -126,7 +126,7 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   (dados clínicos via `silver_epidemio`)
 ### [0.4.0] — Sprint 3: Process Mining
 
-**Previsão:** a definir
+**Previsão:** em andamento
 
 #### Fase 1 — Fundamentos e ambiente
 - Instalação e configuração do PM4Py no Databricks Free Edition
@@ -135,15 +135,18 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 
 #### Fase 2 — Descoberta de processos
 - Estudo comparativo dos algoritmos: Alpha Miner, Heuristic Miner, Inductive Miner
-- Decisão arquitetural: qual algoritmo usar e por quê (ADR-0008)
+- Decisão arquitetural: qual algoritmo usar e por quê (ADR a numerar)
 - Geração do process model do fluxo de emergência
 - Geração do process model do fluxo de internação
 
 #### Fase 3 — Análises
 - Variant analysis: identificação e ranking das variantes de processo
 - Bottleneck detection: tempos de espera entre atividades
-- Conformance checking: token replay vs alignment (ADR-0009)
-- Social Network Analysis: handover of work entre recursos e especialidades
+- Conformance checking: token replay vs alignment (ADR a numerar)
+- Social Network Analysis: Handover of Work e Subcontracting, em dois níveis
+  — setor↔setor (especialidade como atributo da transição) e
+  especialidade↔especialidade (segmentado dentro de cada setor); Working
+  Together e Similar Activities avaliados e descartados (ADR-0008)
 - Performance Spectrum: variação temporal do desempenho do processo
 
 #### Fase 4 — Exportação
