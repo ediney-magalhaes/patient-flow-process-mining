@@ -231,7 +231,7 @@ Lakeflow Declarative Pipelines (pipeline `silver_transformations`).
 ## Camada Gold
 
 Event log canônico para Process Mining e atributos de caso para enriquecimento analítico.
-Todas as tabelas `gold_events_*` seguem o schema canônico XES com 10 colunas obrigatórias.
+Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 
 ### Schema canônico — tabelas gold_events_*
 
@@ -244,7 +244,8 @@ Todas as tabelas `gold_events_*` seguem o schema canônico XES com 10 colunas ob
 | `event_type` | string | obrigatório | Categoria do evento (ex: `internacao`, `cirurgia`) |
 | `case_type` | string | obrigatório | Tipo de jornada do caso (ex: `internacao`, `cirurgico`) |
 | `outcome` | string | nullable | Desfecho do caso |
-| `resource` | string | nullable | Profissional ou sistema que executou a atividade |
+| `resource` | string | nullable | Hash SHA-256 do médico responsável pelo evento. Cobertura e coluna de origem variam por fonte (ver ADR-0008 e RQ-002) |
+| `especialidade` | string | nullable | Especialidade médica associada ao evento. Cobertura e coluna de origem variam por fonte (ver ADR-0008 e RQ-002) |
 | `location` | string | nullable | Unidade ou sala onde o evento ocorreu |
 | `source` | string | obrigatório | Tabela Silver de origem do evento |
 | `duration_minutes` | int | nullable | Duração total do caso em minutos (diferença entre primeiro e último evento) |
@@ -365,3 +366,42 @@ Todas as tabelas `gold_events_*` seguem o schema canônico XES com 10 colunas ob
 | `complexidade` | string | `PREVISAO_COMPLEXIDADE` | null | Complexidade prevista do caso |
 | `grupo_diagnostico` | string | `PREVISAO_GRUPO` | null | Grupo diagnóstico previsto |
 | `teve_cirurgia` | string | `cirurgia` | null | Indica se houve cirurgia |
+
+### gold_data_quality
+
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Granularidade:** 1 linha por combinação fonte+atividade (nível "atividade") ou 1 linha agregada total (nível "caso") — duas granularidades na mesma tabela, distinguidas pela coluna `nivel`
+- **Origem:** `gold_event_log`
+- **Volume referência:** 43 registros (mar/2026)
+- **Atualização:** automática a cada execução do pipeline `gold_transformations` — `data_referencia` permite série histórica mês a mês
+- **Colunas:**
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `nivel` | string | `"atividade"` ou `"caso"` — granularidade da linha |
+| `fonte` | string | Tabela Silver de origem — nulo quando `nivel = "caso"` |
+| `atividade` | string | Nome da atividade — nulo quando `nivel = "caso"` |
+| `total` | int | Total de eventos (nível atividade) ou casos (nível caso) analisados |
+| `registros_com_timestamp` | int | Eventos ou casos com timestamp completo |
+| `registros_sem_timestamp` | int | Eventos ou casos com timestamp nulo |
+| `cobertura_perc` | double | Percentual de cobertura — `registros_com_timestamp / total * 100` |
+| `data_referencia` | date | Data de processamento — permite comparar cobertura mês a mês |
+
+### gold_variant_analysis
+
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Granularidade:** 1 linha por variante distinta de processo
+- **Origem:** `gold_event_log`, processado via PM4Py no notebook `03_process_mining.ipynb`
+- **Volume referência:** 2.016 variantes (mar/2026, 7.643 traces totais)
+- **Atualização:** manual — recalculada e sobrescrita quando o notebook de Process
+  Mining é executado, não faz parte do pipeline `gold_transformations`
+- **Colunas:**
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `rank` | int | Posição da variante no ranking de frequência (1 = mais frequente) |
+| `sequencia` | string | Sequência de atividades da variante, separadas por `→` |
+| `total_eventos` | int | Número de atividades distintas na sequência |
+| `total_casos` | int | Número de casos (traces) que seguem exatamente essa variante |
+| `cobertura_perc` | double | Percentual de casos cobertos por essa variante em relação ao total |
+| `data_referencia` | date | Data de processamento |
