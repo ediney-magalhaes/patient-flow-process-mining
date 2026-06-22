@@ -135,14 +135,14 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 
 #### Fase 2 — Descoberta de processos
 - Estudo comparativo dos algoritmos: Alpha Miner, Heuristic Miner, Inductive Miner
-- Decisão arquitetural: qual algoritmo usar e por quê (ADR a numerar)
+- Decisão arquitetural: qual algoritmo usar e por quê (ADR-0009)
 - Geração do process model do fluxo de emergência
 - Geração do process model do fluxo de internação
 
 #### Fase 3 — Análises
 - Variant analysis: identificação e ranking das variantes de processo
 - Bottleneck detection: tempos de espera entre atividades
-- Conformance checking: token replay vs alignment (ADR a numerar)
+- Conformance checking: token replay vs alignment (ADR-0010)
 - Social Network Analysis: Handover of Work e Subcontracting, em dois níveis
   — setor↔setor (especialidade como atributo da transição) e
   especialidade↔especialidade (segmentado dentro de cada setor); Working
