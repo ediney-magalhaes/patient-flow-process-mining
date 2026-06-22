@@ -41,13 +41,14 @@ def gold_events_movimentacoes():
     df = df.withColumn("case_type", F.lit("internacao"))
     df = df.withColumn("outcome", F.lit(None).cast("string"))
     df = df.withColumn("resource", F.lit(None).cast("string"))
+    df = df.withColumn("especialidade", F.lit(None).cast("string"))
     df = df.withColumn("source", F.lit("silver_movimentacoes"))
 
     # seleciona apenas as colunas do schema canônico na ordem correta
     return df.select(
         "case_id", "activity", "timestamp", "lifecycle",
         "event_type", "case_type", "outcome", "resource",
-        "location", "source"
+        "especialidade", "location", "source"
     )
 
 @dlt.table(
@@ -66,7 +67,8 @@ def gold_events_internacoes():
     df = df.withColumn("event_type", F.lit("internacao"))
     df = df.withColumn("case_type", F.lit("internacao"))
     df = df.withColumn("outcome", F.lit(None).cast("string"))
-    df = df.withColumn("resource", F.lit(None).cast("string"))
+    df = df.withColumn("resource", F.col("PRESTADOR"))
+    df = df.withColumn("especialidade", F.col("ESPECIALID_ATEND"))
     df = df.withColumn("source", F.lit("silver_internacoes"))
 
     # cria a tabela com data e hora da internação
@@ -76,7 +78,7 @@ def gold_events_internacoes():
                       .select(
                           "case_id", "activity", "timestamp", "lifecycle",
                               "event_type", "case_type", "outcome", "resource",
-                              "location", "source"
+                              "especialidade", "location", "source"
                       )
     
     # cria a tabela com data e hora da alta
@@ -86,7 +88,7 @@ def gold_events_internacoes():
                 .select(
                     "case_id", "activity", "timestamp", "lifecycle",
                         "event_type", "case_type", "outcome", "resource",
-                        "location", "source"
+                        "especialidade", "location", "source"
                 )
     # seleciona apenas as colunas do schema canônico na ordem correta
     return df_internacao.unionByName(df_alta)
@@ -109,16 +111,18 @@ def gold_events_altas():
     df = df.withColumn("case_type", F.lit("alta"))
     df = df.withColumn("outcome", F.lit(None).cast("string"))
     df = df.withColumn("resource", F.lit(None).cast("string"))
+    df = df.withColumn("especialidade", F.col("DS_ESPECIALID"))
     df = df.withColumn("source", F.lit("silver_altas"))
 
     # cria o DataFrame de prescrição da alta
     df_prescricao_alta = df.withColumn("activity", F.lit("Prescricao de alta")) \
                            .withColumnRenamed("DT_HR_PRE_MED", "timestamp") \
                            .withColumnRenamed("ATENDIMENTO", "case_id") \
+                           .withColumn("resource", F.col("PREST_ALTA")) \
                            .select(
                                "case_id", "activity", "timestamp", "lifecycle",
                                "event_type", "case_type", "outcome", "resource",
-                               "location", "source"
+                               "especialidade", "location", "source"
                            )
     
     # cria o DataFrame de alta médica
@@ -128,7 +132,7 @@ def gold_events_altas():
                        .select(
                            "case_id", "activity", "timestamp", "lifecycle",
                             "event_type", "case_type", "outcome", "resource",
-                            "location", "source"
+                            "especialidade", "location", "source"
                        )
     
     # cria o DataFrame de alta hospitalar
@@ -138,7 +142,7 @@ def gold_events_altas():
                            .select(
                                "case_id", "activity", "timestamp", "lifecycle",
                                 "event_type", "case_type", "outcome", "resource",
-                                "location", "source"
+                                "especialidade", "location", "source"
                            )
     
     # seleciona apenas as colunas do schema canônico na ordem correta
@@ -158,18 +162,18 @@ def gold_events_cirurgias():
 
     # lista de eventos
     eventos = [
-        ("DT_AVISO_CIRURGIA",        "Aviso de Cirurgia"),
-        ("DT_AGENDA_CIR",            "Agendamento de Cirurgia"),
-        ("INICIO_PROGRAMADO_CIRURGIA", "Inicio Programado da Cirurgia"),
-        ("FINAL_PROGRAMADO_CIRURGIA",  "Fim Programado da Cirurgia"),
-        ("DT_HR_ENTRADA_SALA_CIRURG",  "Entrada na Sala Cirurgica"),
-        ("INICIO_ANESTESIA",           "Inicio da Anestesia"),
-        ("DT_INICIO_CIRURGIA",         "Inicio da Cirurgia"),
-        ("DT_FIM_CIRURGIA",            "Fim da Cirurgia"),
-        ("FIM_ANESTESIA",              "Fim da Anestesia"),
-        ("DT_HR_SAIDA_SALA_CIRURG",    "Saida da Sala Cirurgica"),
-        ("INICIO_LIMPEZA",             "Inicio da Limpeza da Sala"),
-        ("FIM_LIMPEZA",                "Fim da Limpeza da Sala"),
+        ("DT_AVISO_CIRURGIA",        "Aviso de Cirurgia",               None),
+        ("DT_AGENDA_CIR",            "Agendamento de Cirurgia",         None),
+        ("INICIO_PROGRAMADO_CIRURGIA", "Inicio Programado da Cirurgia", None),
+        ("FINAL_PROGRAMADO_CIRURGIA",  "Fim Programado da Cirurgia",    None),
+        ("DT_HR_ENTRADA_SALA_CIRURG",  "Entrada na Sala Cirurgica",     None),
+        ("INICIO_ANESTESIA",           "Inicio da Anestesia",           "ANESTESISTA_01"),
+        ("DT_INICIO_CIRURGIA",         "Inicio da Cirurgia",            "CIRURGIAO_01"),
+        ("DT_FIM_CIRURGIA",            "Fim da Cirurgia",               "CIRURGIAO_01"),
+        ("FIM_ANESTESIA",              "Fim da Anestesia",              "ANESTESISTA_01"),
+        ("DT_HR_SAIDA_SALA_CIRURG",    "Saida da Sala Cirurgica",       None),
+        ("INICIO_LIMPEZA",             "Inicio da Limpeza da Sala",     None),
+        ("FIM_LIMPEZA",                "Fim da Limpeza da Sala",        None),
     ]
 
     # adiciona colunas fixas do schema canônico
@@ -178,20 +182,27 @@ def gold_events_cirurgias():
     df = df.withColumn("case_type", F.lit("cirurgico"))
     df = df.withColumn("outcome", F.lit(None).cast("string"))
     df = df.withColumn("resource", F.lit(None).cast("string"))
+    df = df.withColumn("especialidade", F.col("ESPECIALIDADE"))
     df = df.withColumn("source", F.lit("silver_cirurgias"))
 
     # itera a lista de eventos para criar os DataFrames
     
     df_resultado = None
 
-    for coluna_timestamp, nome_atividade in eventos:
-        df_evento = df.withColumn("activity", F.lit(nome_atividade)) \
+    for coluna_timestamp, nome_atividade, coluna_resource in eventos:
+        # verifica evento por evento de onde vem resource
+        if coluna_resource is None:
+            df_evento = df.withColumn("resource", F.lit(None).cast("string"))
+        else:
+            df_evento = df.withColumn("resource", F.col(coluna_resource))
+        
+        df_evento = df_evento.withColumn("activity", F.lit(nome_atividade)) \
                       .withColumnRenamed(coluna_timestamp, "timestamp") \
                       .withColumnRenamed("ATENDIMENTO", "case_id") \
                       .select(
                           "case_id", "activity", "timestamp", "lifecycle",
                           "event_type", "case_type", "outcome", "resource",
-                          "location", "source"
+                          "especialidade", "location", "source"
                         ) 
         if df_resultado is None:
             df_resultado = df_evento
@@ -229,7 +240,8 @@ def gold_events_emergencia():
     df = df.withColumn("event_type", F.lit("emergencia"))
     df = df.withColumn("case_type", F.lit("emergencia"))
     df = df.withColumn("outcome", F.lit(None).cast("string"))
-    df = df.withColumn("resource", F.lit(None).cast("string"))
+    df = df.withColumn("resource", F.col("PRESTADOR"))
+    df = df.withColumn("especialidade", F.col("ESPECIALIDADE"))
     df = df.withColumn("source", F.lit("silver_atendimento_emergencia"))
 
     # itera sobre os eventos e constrói os DataFrames
@@ -241,7 +253,7 @@ def gold_events_emergencia():
                       .select(
                           "case_id", "activity", "timestamp", "lifecycle",
                           "event_type", "case_type", "outcome", "resource",
-                          "location", "source"
+                          "especialidade", "location", "source"
                         )
         if df_resultado is None:
             df_resultado = df_evento
@@ -261,16 +273,16 @@ def gold_events_exames_imagem():
 
     # lista de eventos
     eventos = [
-        ("DATA_HORA_PRESCRICAO",       "Prescrição do Exame de Imagem"),
-        ("STATUS_ADMITIDO",            "Admissão no RIS"),
-        ("STATUS_LIBERADO",            "Liberação para Início do Exame"),
-        ("STATUS_INICIO_PREPARO",      "Início do Preparo"),
-        ("STATUS_FIM_PREPARO",         "Fim do Preparo"),
-        ("STATUS_INICIO_EXAME",        "Início do Exame"),
-        ("STATUS_TERMINO_EXAME",       "Término do Exame de Imagem"),
-        ("DATA_DITADO",                "Ditado do Laudo"),
-        ("DATA_LAUDO",                 "Laudo Registrado no Sistema"),
-        ("STATUS_APROVADO",            "Laudo Aprovado"),
+        ("DATA_HORA_PRESCRICAO",       "Prescrição do Exame de Imagem",  "MEDICO_SOLICITANTE"),
+        ("STATUS_ADMITIDO",            "Admissão no RIS",                None),
+        ("STATUS_LIBERADO",            "Liberação para Início do Exame", None),
+        ("STATUS_INICIO_PREPARO",      "Início do Preparo",              None),
+        ("STATUS_FIM_PREPARO",         "Fim do Preparo",                 None),
+        ("STATUS_INICIO_EXAME",        "Início do Exame",                None),
+        ("STATUS_TERMINO_EXAME",       "Término do Exame de Imagem",     None),
+        ("DATA_DITADO",                "Ditado do Laudo",                None),
+        ("DATA_LAUDO",                 "Laudo Registrado no Sistema",    None),
+        ("STATUS_APROVADO",            "Laudo Aprovado",                 None),
     ]
 
     # adiciona colunas fixas do schema canônico
@@ -279,20 +291,27 @@ def gold_events_exames_imagem():
     df = df.withColumn("case_type", F.col("TIPO_ATENDIMENTO"))
     df = df.withColumn("outcome", F.lit(None).cast("string"))
     df = df.withColumn("resource", F.lit(None).cast("string"))
+    df = df.withColumn("especialidade", F.col("ESPECIALIDADE"))
     df = df.withColumn("location", F.lit(None).cast("string"))
     df = df.withColumn("source", F.lit("silver_exames_imagem"))
 
     # itera sobre a lista de eventos para construir os DataFrames
     df_resultado = None
 
-    for coluna_timestamp, nome_atividade in eventos:
-        df_eventos = df.withColumn("activity", F.lit(nome_atividade)) \
+    for coluna_timestamp, nome_atividade, coluna_resource in eventos:
+
+        if coluna_resource is None:
+            df_eventos = df.withColumn("resource", F.lit(None).cast("string"))
+        else:
+            df_eventos = df.withColumn("resource", F.col(coluna_resource))
+
+        df_eventos = df_eventos.withColumn("activity", F.lit(nome_atividade)) \
                        .withColumnRenamed(coluna_timestamp, "timestamp") \
                        .withColumnRenamed("CD_ATENDIMENTO", "case_id") \
                        .select(
                            "case_id", "activity", "timestamp", "lifecycle",
                           "event_type", "case_type", "outcome", "resource",
-                          "location", "source"
+                          "especialidade", "location", "source"
                        )
         
         if df_resultado is None:
@@ -324,6 +343,7 @@ def gold_events_exames_laboratoriais():
     df = df.withColumn("case_type", F.lit("emergencia"))
     df = df.withColumn("outcome", F.lit(None).cast("string"))
     df = df.withColumn("resource", F.lit(None).cast("string"))
+    df = df.withColumn("especialidade", F.lit(None).cast("string"))
     df = df.withColumn("location", F.lit(None).cast("string"))
     df = df.withColumn("source", F.lit("silver_exames_laboratoriais"))
 
@@ -336,7 +356,7 @@ def gold_events_exames_laboratoriais():
                       .select(
                           "case_id", "activity", "timestamp", "lifecycle",
                           "event_type", "case_type", "outcome", "resource",
-                          "location", "source"
+                          "especialidade", "location", "source"
                       )
         
         if df_resultado is None:
