@@ -104,3 +104,75 @@ inconsistência a ser corrigida.
 
 Nenhuma. Achado documentado para que análises futuras não interpretem essa
 sequência como erro de qualidade de dado.
+
+---
+
+## RQ-004 — Perda de eventos entre `gold_event_log` e o EventLog do PM4Py
+
+- **Tabela de origem:** `gold_event_log`
+- **Campos afetados:** `timestamp` (suspeito, não confirmado)
+- **Data do achado:** 2026-06-24
+- **Contexto:** Sprint 3, Fase 3 (Social Network Analysis)
+
+### Achado
+
+O volume total lido de `gold_event_log` é maior do que o volume de eventos
+que efetivamente chega ao objeto `EventLog` do PM4Py, após a conversão
+Spark > Pandas > `format_dataframe()` → `convert_to_event_log()`. A perda
+é proporcionalmente relevante (na ordem de dezenas de milhares de eventos
+sobre o total) e não distribuída igualmente entre fontes, uma verificação
+isolada em `silver_atendimento_emergencia` confirmou perda também nessa
+fonte especificamente, antes de medirmos o total agregado.
+
+### Decisão
+
+Nenhuma correção aplicada ainda. Hipótese mais provável: descarte
+silencioso de eventos com `timestamp` nulo/NaT durante a conversão, o
+PM4Py é estrito quanto a esse campo, e nenhuma das etapas da conversão
+emite aviso quando uma linha é descartada por esse motivo. Não confirmado
+por inspeção direta do código-fonte do PM4Py nem por comparação de
+contagem por fonte em cada etapa da pipeline.
+
+### Ação futura recomendada
+
+Investigação dedicada: comparar contagem por `source` em cada etapa da
+conversão (leitura Spark, `.toPandas()`, `format_dataframe()`,
+`convert_to_event_log()`) para isolar em qual etapa exata a perda ocorre,
+e então decidir se cabe correção no notebook ou se é uma característica
+aceitável da conversão para esse formato.
+
+---
+
+## RQ-005 — Timestamp incoerente no evento `Alta médica` (`gold_events_altas`)
+
+- **Tabela de origem:** `silver_altas` (provável, não confirmado se a
+  causa está na Silver ou no mapeamento da Gold)
+- **Campos afetados:** evento `Alta médica` (distinto de `Alta Hospitalar`)
+- **Data do achado:** 2026-06-24
+- **Contexto:** Sprint 3, Fase 3 (Social Network Analysis Subcontracting Setor ↔ Setor)
+
+### Achado
+
+Em casos que envolvem cirurgia, o evento `Alta médica` aparece
+cronologicamente **antes** do `Fim da Anestesia` do mesmo procedimento,
+sequência clinicamente impossível. O evento `Alta Hospitalar` (distinto,
+mesma fonte) mantém timestamp coerente com o restante da jornada do caso.
+Esse comportamento gera falsos positivos na análise de Subcontracting
+Setor↔Setor: o padrão Cirurgias>Altas>Cirurgias aparece no resultado sem
+representar delegação real — é artefato do timestamp incoerente de
+`Alta médica`.
+
+### Decisão
+
+Nenhuma correção aplicada. A análise de Subcontracting (#3,
+`docs/05-process-mining/`) foi mantida sem filtrar os casos afetados,
+para que uma futura correção na origem se reflita automaticamente no
+resultado, sem necessidade de ajustar filtros no notebook.
+
+### Ação futura recomendada
+
+Investigar a coluna de origem do evento `Alta médica` em `silver_altas`,
+provável mapeamento de timestamp incorreto (ex: lendo de um campo que não
+representa esse evento especificamente). Após a correção, reexecutar a
+análise de Subcontracting Setor↔Setor para confirmar se o padrão
+Cirurgias↔Altas desaparece ou se revela um sinal real.
