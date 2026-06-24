@@ -1,7 +1,7 @@
 # ADR-0008: Escopo de Social Network Analysis e Extensão do Schema Canônico
 
-- **Status:** proposto
-- **Data:** 2026-06-22
+- **Status:** aceito
+- **Data:** 2026-06-24
 - **Decisores:** Ediney Magalhães
 
 ---
@@ -63,7 +63,7 @@ ADR-0007 — normalização inline na Gold, sem alterar a Silver):
 | `atendimento_emergencia` | `ESPECIALIDADE` | todos os 8 eventos |
 | `internacoes` | `ESPECIALID_ATEND` | todos os eventos |
 | `altas` | `DS_ESPECIALID` | todos os 3 eventos |
-| `exames_imagem` | `ESPECIALIDADE` | todos os 10 eventos |
+| `exames_imagem` | `ESPECIALIDADE_MEDICO` | todos os 10 eventos |
 | `cirurgias` | `ESPECIALIDADE` (cirurgião principal) | todos os 12 eventos |
 
 `resource` (hash do médico, reativando coluna do schema original):
@@ -105,6 +105,13 @@ redundante com as colunas `ORIGEM`/`DESTINO` já existentes em
 
 **Working Together e Similar Activities como análises obrigatórias.**
 Descartadas pelos motivos detalhados na seção de Decisão.
+
+**Correção pós-implementação (24/06):** a coluna `ESPECIALIDADE` em
+`exames_imagem` não representa a especialidade do médico solicitante —
+é outro campo, semanticamente diferente. Identificado durante a
+implementação de SNA (Handover especialidade↔especialidade), quando o
+PM4Py quebrou ao comparar valores nulos/inconsistentes. Corrigido para
+`ESPECIALIDADE_MEDICO`, que tem cobertura real de 96%.
 
 ## Consequências
 
