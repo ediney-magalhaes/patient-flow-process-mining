@@ -291,7 +291,7 @@ def gold_events_exames_imagem():
     df = df.withColumn("case_type", F.col("TIPO_ATENDIMENTO"))
     df = df.withColumn("outcome", F.lit(None).cast("string"))
     df = df.withColumn("resource", F.lit(None).cast("string"))
-    df = df.withColumn("especialidade", F.col("ESPECIALIDADE"))
+    df = df.withColumn("especialidade", F.col("ESPECIALIDADE_MEDICO"))
     df = df.withColumn("location", F.lit(None).cast("string"))
     df = df.withColumn("source", F.lit("silver_exames_imagem"))
 
