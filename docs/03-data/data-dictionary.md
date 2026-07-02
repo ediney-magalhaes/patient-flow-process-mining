@@ -427,3 +427,81 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 | tempo_mediano_min | double | Tempo mediano da transição em minutos | Não |
 | tempo_p25_min | double | Percentil 25 do tempo de transição em minutos | Não |
 | tempo_p75_min | double | Percentil 75 do tempo de transição em minutos | Não |
+
+### gold_bottleneck
+
+- **Descrição:** Tempos de transição entre pares de atividades por setor e
+  período, com métricas de dispersão para identificação de gargalos no
+  fluxo hospitalar.
+- **Granularidade:** Uma linha por combinação source × ano_mes × atividade
+  de origem × atividade de destino.
+- **Origem:** `gold_event_log` (via notebook `03_process_mining.ipynb`)
+- **Frequência de atualização:** Mensal
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+
+| Coluna | Tipo | Descrição | Nullable |
+|---|---|---|---|
+| source | string | Setor de origem do evento | Não |
+| ano_mes | string | Período de referência no formato YYYY-MM | Não |
+| de | string | Atividade de origem da transição | Não |
+| para | string | Atividade de destino da transição | Não |
+| tempo_medio_min | double | Tempo médio da transição em minutos | Sim |
+| tempo_mediano_min | double | Tempo mediano da transição em minutos | Sim |
+| desvio_padrao_min | double | Desvio padrão do tempo de transição em minutos | Sim |
+| frequencia | long | Número de ocorrências da transição | Não |
+| cv_pct | double | Coeficiente de variação em percentual | Sim |
+
+### gold_conformance
+
+- **Descrição:** Métricas de conformidade do processo por fonte e período,
+  medindo fitness e precisão em relação ao modelo descoberto.
+- **Granularidade:** Uma linha por source × ano_mes.
+- **Origem:** `gold_event_log` (via notebook `03_process_mining.ipynb`)
+- **Frequência de atualização:** Mensal
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+
+| Coluna | Tipo | Descrição | Nullable |
+|---|---|---|---|
+| source | string | Setor avaliado | Não |
+| fitness | double | Proporção de traces que seguem o modelo (0–1) | Não |
+| precision | double | Grau de especificidade do modelo (0–1) | Não |
+| total_traces | long | Total de casos avaliados | Não |
+| ano_mes | string | Período de referência no formato YYYY-MM | Não |
+
+### gold_sna_handover
+
+- **Descrição:** Padrões de handover de trabalho entre setores hospitalares,
+  com especialidade médica como atributo da transição. Identifica os
+  principais fluxos de encaminhamento entre setores.
+- **Granularidade:** Uma linha por combinação setor_origem × setor_destino
+  × ano_mes × especialidade.
+- **Origem:** `gold_event_log` (via notebook `03_process_mining.ipynb`)
+- **Frequência de atualização:** Mensal
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+
+| Coluna | Tipo | Descrição | Nullable |
+|---|---|---|---|
+| source_anterior | string | Setor que originou o encaminhamento | Não |
+| source | string | Setor que recebeu o encaminhamento | Não |
+| ano_mes | string | Período de referência no formato YYYY-MM | Não |
+| especialidade | string | Especialidade médica da transição | Sim |
+| frequencia | long | Número de ocorrências do handover | Não |
+
+### gold_sna_subcontracting
+
+- **Descrição:** Padrões de subcontracting entre setores hospitalares,
+  casos onde um setor delega para outro e retoma o atendimento (padrão
+  A->B->A). Identifica delegações temporárias no fluxo hospitalar.
+- **Granularidade:** Uma linha por combinação setor_A × ano_mes ×
+  setor_intermediário × especialidade do intermediário.
+- **Origem:** `gold_event_log` (via notebook `03_process_mining.ipynb`)
+- **Frequência de atualização:** Mensal
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+
+| Coluna | Tipo | Descrição | Nullable |
+|---|---|---|---|
+| source | string | Setor que delega e retoma o atendimento | Não |
+| ano_mes | string | Período de referência no formato YYYY-MM | Não |
+| source_1_atras | string | Setor intermediário da delegação | Não |
+| especialidade_1_atras | string | Especialidade do setor intermediário | Sim |
+| frequencia | long | Número de ocorrências do padrão | Não |
