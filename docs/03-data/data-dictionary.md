@@ -505,3 +505,18 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 | source_1_atras | string | Setor intermediário da delegação | Não |
 | especialidade_1_atras | string | Especialidade do setor intermediário | Sim |
 | frequencia | long | Número de ocorrências do padrão | Não |
+
+## event_log_[ano_mes].xes
+
+- **Descrição:** Event log completo exportado no formato padrão XES
+  (IEEE 1849-2016) para interoperabilidade com ferramentas externas de
+  Process Mining (ProM, Disco, Celonis).
+- **Tipo de artefato:** Arquivo XML, não tabela relacional.
+- **Granularidade:** Um arquivo por período (`ano_mes`), contendo todos os
+  traces e eventos daquele mês.
+- **Origem:** `event_log` do PM4Py (via notebook `03_process_mining.ipynb`)
+- **Frequência de atualização:** Mensal, um novo arquivo por período de
+  ingestão.
+- **Localização:** `hospital_santa_rosa.gold_fluxo.exports` (Volume do
+  Unity Catalog)
+- **Convenção de nomenclatura:** `event_log_AAAA_MM.xes`

@@ -28,3 +28,17 @@ foi possível recuperá-la integralmente depois. Os 10 itens originais estão
 perdidos como lista; será necessário refazer esse levantamento em sessão
 dedicada, revisitando os Sprints 0–2, em vez de tentar reconstruir de
 memória.
+
+## Sessão 2026-07-02
+
+- **Performance Spectrum** — conceito, quando usar, diferença para
+  Bottleneck Detection (foco temporal vs foco estrutural).
+- **Auditoria de pipeline por contagem em cada etapa de transformação** —
+  técnica de isolar perda de dados comparando volume por fonte em cada
+  ponto da pipeline (Spark → Pandas → format_dataframe → EventLog),
+  aplicada na investigação de RQ-004.
+- **Volumes do Unity Catalog como destino de escrita** — gerenciado vs
+  externo, quando usar Volume vs tabela Delta, caminho `/Volumes/...`
+  como sistema de arquivo dentro do Spark.
+- **Exportação XES e o padrão IEEE 1849-2016** — o que é, por que existe,
+  trade-off de verbosidade XML vs formatos binários (Parquet/Delta).

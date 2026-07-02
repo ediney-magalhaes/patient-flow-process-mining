@@ -17,9 +17,8 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
  
 ## [Não Lançado]
 
-### Adicionado
 
-#### Sprint 3 — Process Mining (em andamento)
+#### Sprint 3 — Process Mining (concluído)
 
 - PM4Py 2.7.22.4 instalado e validado no Databricks Free Edition (serverless)
 - Notebook `03_process_mining.ipynb` criado — pipeline Gold → Pandas → PM4Py EventLog
@@ -29,18 +28,32 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - Variant Analysis: 2.016 variantes identificadas e ranqueadas; persistido
   em `gold_variant_analysis`
 - Bottleneck Detection: tempos de espera entre atividades calculados por
-  fonte, com coeficiente de variação
+  fonte, com coeficiente de variação; persistido em `gold_bottleneck`
 - Conformance Checking: token replay por fonte (fitness ≥ 0,99; precision
   0,06–0,18, atribuída à alta variedade de variantes); decisão documentada
-  em ADR-0010
+  em ADR-0010; persistido em `gold_conformance`
 - `gold_data_quality`: cobertura de timestamp por atividade e por caso
 - Social Network Analysis (5 análises, escopo em ADR-0008):
   - Subcontracting setor↔setor, nível único
   - Handover e Subcontracting especialidade↔especialidade, segmentados por setor
   - Handover e Subcontracting setor↔setor, com especialidade como atributo
-    da transição (construção manual em Pandas)
-- Pendente: Performance Spectrum (Fase 3); exportação XES e persistência
-  completa dos modelos descobertos (Fase 4)
+    da transição (construção manual em Pandas); persistidos em
+    `gold_sna_handover` e `gold_sna_subcontracting`
+- Performance Spectrum: análise de variação temporal de transições por mês
+  e dia da semana; persistido em `gold_performance_spectrum`
+- Dimensão `ano_mes` adicionada em `df_formatado`, propagada para Bottleneck,
+  SNA e Conformance, suportando análise de tendência com histórico multi-período
+- Exportação do event log completo para o formato padrão XES
+  (IEEE 1849-2016), disponível em `hospital_santa_rosa.gold_fluxo.exports`
+- Volume `exports` criado em `gold_fluxo` para artefatos de saída do projeto
+
+### Corrigido
+- RQ-004: causa raiz da perda de eventos entre `gold_event_log` e o
+  EventLog do PM4Py confirmada — nulos de timestamp já presentes na
+  Silver, não introduzidos pela transformação Gold.
+- RQ-005: causa raiz da anomalia de timestamp (`Alta médica` antes de
+  `Fim da Anestesia`) confirmada como erro de input operacional na
+  origem, não falha de pipeline.
 
 #### Sprint 2 — Gold (Event Log XES) — concluído
 
