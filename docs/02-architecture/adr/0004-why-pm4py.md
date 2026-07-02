@@ -2,7 +2,7 @@
  
 ## Status
  
-**Aceito** (pendente validação de instalação na Free Edition)
+**Aceito**
  
 **Data:** 2026-04-26  
 **Decisores:** Ediney Magalhães (Analytics Engineer)  
@@ -32,12 +32,7 @@ Requisitos para a ferramenta:
  
 **Adotaremos PM4Py como biblioteca principal de Process Mining, executada 
 em notebooks Databricks sobre dados da camada Gold.**
- 
-> ⚠️ A decisão conceitual está tomada. A validação técnica (instalação via 
-> `%pip install pm4py` no compute serverless da Free Edition) será feita no 
-> Sprint 3. Se houver incompatibilidade, a alternativa é executar PM4Py 
-> localmente com dados exportados do Gold.
- 
+  
 ---
  
 ## Alternativas Consideradas
@@ -113,7 +108,11 @@ analítica contínua.
  
 ## Implementação
  
-- [ ] Validar instalação de PM4Py no compute serverless da Free Edition
+- [x] Validar instalação de PM4Py no compute serverless da Free Edition —
+  confirmado em 15/06/2026 via `%pip install pm4py` +
+  `dbutils.library.restartPython()`. Versão: 2.7.22.4. Dependências
+  resolvidas automaticamente: networkx 3.6.1, graphviz 0.21, lxml 6.1.1,
+  cvxopt 1.3.3. Fallback local descartado.
 - [ ] Adicionar `pm4py` às dependências do projeto
 - [ ] Criar notebook de descoberta de processo
 - [ ] Definir algoritmos iniciais: Inductive Miner para descoberta, alignment para conformance
@@ -133,3 +132,4 @@ analítica contínua.
 | Data | Mudança | Autor |
 |---|---|---|
 | 2026-04-26 | Criação | @ediney-magalhaes |
+| 2026-06-15 | Validação técnica concluída — PM4Py 2.7.22.4 instalado no serverless | @ediney-magalhaes |

@@ -2,6 +2,11 @@
 
 Notas e referências sobre conceitos e técnicas aplicados no projeto.
 
-## Documentos planejados
+## Backlog
 
-- Notas serão criadas conforme novos conceitos forem aplicados ao longo dos sprints
+Candidatos a nota dedicada ficam registrados em `backlog.md`, conforme
+aparecem — ver arquivo para a lista atual.
+
+## Notas publicadas
+
+- `organizational-mining.md` — Social Network Analysis / Organizational Mining

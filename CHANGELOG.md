@@ -17,7 +17,43 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
  
 ## [Não Lançado]
 
-### Adicionado
+
+#### Sprint 3 — Process Mining (concluído)
+
+- PM4Py 2.7.22.4 instalado e validado no Databricks Free Edition (serverless)
+- Notebook `03_process_mining.ipynb` criado — pipeline Gold → Pandas → PM4Py EventLog
+- Algoritmo Inductive Miner selecionado para descoberta de processo (ADR-0009)
+- Process Tree gerado para os fluxos de emergência e internação; visualização
+  gerada localmente via Graphviz (bloqueado no Databricks serverless)
+- Variant Analysis: 2.016 variantes identificadas e ranqueadas; persistido
+  em `gold_variant_analysis`
+- Bottleneck Detection: tempos de espera entre atividades calculados por
+  fonte, com coeficiente de variação; persistido em `gold_bottleneck`
+- Conformance Checking: token replay por fonte (fitness ≥ 0,99; precision
+  0,06–0,18, atribuída à alta variedade de variantes); decisão documentada
+  em ADR-0010; persistido em `gold_conformance`
+- `gold_data_quality`: cobertura de timestamp por atividade e por caso
+- Social Network Analysis (5 análises, escopo em ADR-0008):
+  - Subcontracting setor↔setor, nível único
+  - Handover e Subcontracting especialidade↔especialidade, segmentados por setor
+  - Handover e Subcontracting setor↔setor, com especialidade como atributo
+    da transição (construção manual em Pandas); persistidos em
+    `gold_sna_handover` e `gold_sna_subcontracting`
+- Performance Spectrum: análise de variação temporal de transições por mês
+  e dia da semana; persistido em `gold_performance_spectrum`
+- Dimensão `ano_mes` adicionada em `df_formatado`, propagada para Bottleneck,
+  SNA e Conformance, suportando análise de tendência com histórico multi-período
+- Exportação do event log completo para o formato padrão XES
+  (IEEE 1849-2016), disponível em `hospital_santa_rosa.gold_fluxo.exports`
+- Volume `exports` criado em `gold_fluxo` para artefatos de saída do projeto
+
+### Corrigido
+- RQ-004: causa raiz da perda de eventos entre `gold_event_log` e o
+  EventLog do PM4Py confirmada — nulos de timestamp já presentes na
+  Silver, não introduzidos pela transformação Gold.
+- RQ-005: causa raiz da anomalia de timestamp (`Alta médica` antes de
+  `Fim da Anestesia`) confirmada como erro de input operacional na
+  origem, não falha de pipeline.
 
 #### Sprint 2 — Gold (Event Log XES) — concluído
 
@@ -71,6 +107,8 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 ### Corrigido
 
 - Anonimização da base epidemio: colunas `prestador1` e `prestador2` adicionadas ao `config.py` e dados re-ingeridos na Bronze
+- Mapeamento de `especialidade` em `gold_events_exames_imagem` corrigido de `ESPECIALIDADE` para `ESPECIALIDADE_MEDICO`, coluna
+  anterior não representava a especialidade do médico solicitante; bases de `exames_imagem` e `atendimento_emergencia` reingeridas (Bronze → Silver → Gold)
 
 #### Sprint 0 — Fundação (concluído)
 
@@ -126,7 +164,7 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   (dados clínicos via `silver_epidemio`)
 ### [0.4.0] — Sprint 3: Process Mining
 
-**Previsão:** a definir
+**Previsão:** em andamento
 
 #### Fase 1 — Fundamentos e ambiente
 - Instalação e configuração do PM4Py no Databricks Free Edition
@@ -135,15 +173,18 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 
 #### Fase 2 — Descoberta de processos
 - Estudo comparativo dos algoritmos: Alpha Miner, Heuristic Miner, Inductive Miner
-- Decisão arquitetural: qual algoritmo usar e por quê (ADR-0008)
+- Decisão arquitetural: qual algoritmo usar e por quê (ADR-0009)
 - Geração do process model do fluxo de emergência
 - Geração do process model do fluxo de internação
 
 #### Fase 3 — Análises
 - Variant analysis: identificação e ranking das variantes de processo
 - Bottleneck detection: tempos de espera entre atividades
-- Conformance checking: token replay vs alignment (ADR-0009)
-- Social Network Analysis: handover of work entre recursos e especialidades
+- Conformance checking: token replay vs alignment (ADR-0010)
+- Social Network Analysis: Handover of Work (setor↔setor com especialidade
+  como atributo da transição; especialidade ↔ especialidade segmentado por setor)
+  e Subcontracting (mesmos dois níveis, mais a versão setor ↔ setor pura, sem especialidade);
+  Working Together e Similar Activities avaliados e descartados (ADR-0008)
 - Performance Spectrum: variação temporal do desempenho do processo
 
 #### Fase 4 — Exportação
