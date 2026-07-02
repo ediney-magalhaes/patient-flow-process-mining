@@ -405,3 +405,25 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 | `total_casos` | int | Número de casos (traces) que seguem exatamente essa variante |
 | `cobertura_perc` | double | Percentual de casos cobertos por essa variante em relação ao total |
 | `data_referencia` | date | Data de processamento |
+
+### gold_performance_spectrum
+
+- **Descrição:** Variação temporal do desempenho do processo, tempos de
+  transição entre atividades consecutivas, agregados por mês e dia da semana.
+  Base para análise de sazonalidade e tendência do fluxo hospitalar.
+- **Granularidade:** Uma linha por combinação de transição (atividade ->
+  próxima atividade) × mês × dia da semana.
+- **Origem:** `gold_event_log` (via notebook `03_process_mining.ipynb`)
+- **Frequência de atualização:** Mensal, após ingestão de novo período
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+
+| Coluna | Tipo | Descrição | Nullable |
+|---|---|---|---|
+| concept:name | string | Atividade de origem da transição | Não |
+| proxima_atividade | string | Atividade de destino da transição | Não |
+| ano_mes | string | Período de referência no formato YYYY-MM | Não |
+| dia_semana | string | Dia da semana em português | Não |
+| total_transicoes | long | Número de ocorrências da transição nesse período e dia | Não |
+| tempo_mediano_min | double | Tempo mediano da transição em minutos | Não |
+| tempo_p25_min | double | Percentil 25 do tempo de transição em minutos | Não |
+| tempo_p75_min | double | Percentil 75 do tempo de transição em minutos | Não |
