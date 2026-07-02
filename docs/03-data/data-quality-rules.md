@@ -110,36 +110,54 @@ sequência como erro de qualidade de dado.
 ## RQ-004 — Perda de eventos entre `gold_event_log` e o EventLog do PM4Py
 
 - **Tabela de origem:** `gold_event_log`
-- **Campos afetados:** `timestamp` (suspeito, não confirmado)
-- **Data do achado:** 2026-06-24
-- **Contexto:** Sprint 3, Fase 3 (Social Network Analysis)
+- **Campos afetados:** `timestamp`
+- **Data do achado:** 2026-06-24 (achado inicial) / 2026-07-02 (causa raiz confirmada)
+- **Contexto:** Sprint 3, Fase 3 (Social Network Analysis / investigação dedicada)
 
 ### Achado
 
-O volume total lido de `gold_event_log` é maior do que o volume de eventos
-que efetivamente chega ao objeto `EventLog` do PM4Py, após a conversão
-Spark > Pandas > `format_dataframe()` → `convert_to_event_log()`. A perda
-é proporcionalmente relevante (na ordem de dezenas de milhares de eventos
-sobre o total) e não distribuída igualmente entre fontes, uma verificação
-isolada em `silver_atendimento_emergencia` confirmou perda também nessa
-fonte especificamente, antes de medirmos o total agregado.
+O volume lido de `gold_event_log` é maior do que o volume de eventos que
+efetivamente chega ao objeto `EventLog` do PM4Py. A perda é concentrada
+de forma desproporcional em uma única fonte (`silver_exames_imagem`),
+que responde pela grande maioria da diferença total, enquanto as demais
+fontes apresentam perdas pequenas e relativamente uniformes.
+
+### Causa raiz confirmada
+
+A perda ocorre na chamada de `pm4py.format_dataframe()`, que descarta
+silenciosamente (com aviso via `UserWarning`) linhas com `case_id`,
+`activity` ou `timestamp` nulos — exigência do PM4Py para o funcionamento
+correto dos algoritmos de descoberta e conformidade.
+
+Em `silver_exames_imagem`, os nulos de timestamp já existem na tabela
+Silver, na origem do sistema hospitalar (RIS) — confirmado por comparação
+direta, campo a campo, entre a contagem de nulos na Silver e a contagem
+de nulos por atividade na Gold, com correspondência exata. Não há
+introdução de nulos pela transformação Gold.
+
+O padrão de nulidade segue a ordem cronológica do fluxo de exame: etapas
+administrativas de entrada (admissão, prescrição) têm cobertura completa;
+etapas mais avançadas do processo clínico (preparo, execução, laudo,
+ditado) têm cobertura crescentemente incompleta, com o evento de ditado
+do laudo sendo o mais afetado. Interpretação mais provável: limitação de
+captura estruturada do sistema RIS para essas etapas específicas, não um
+defeito de engenharia do pipeline.
 
 ### Decisão
 
-Nenhuma correção aplicada ainda. Hipótese mais provável: descarte
-silencioso de eventos com `timestamp` nulo/NaT durante a conversão, o
-PM4Py é estrito quanto a esse campo, e nenhuma das etapas da conversão
-emite aviso quando uma linha é descartada por esse motivo. Não confirmado
-por inspeção direta do código-fonte do PM4Py nem por comparação de
-contagem por fonte em cada etapa da pipeline.
+Nenhuma correção de pipeline aplicada — não há bug identificado no
+Bronze, Silver ou Gold. A perda é uma característica dos dados de origem,
+não da transformação. Análises de Process Mining continuam operando
+sobre os eventos com timestamp válido, com essa limitação documentada
+como contexto de leitura dos resultados.
 
 ### Ação futura recomendada
 
-Investigação dedicada: comparar contagem por `source` em cada etapa da
-conversão (leitura Spark, `.toPandas()`, `format_dataframe()`,
-`convert_to_event_log()`) para isolar em qual etapa exata a perda ocorre,
-e então decidir se cabe correção no notebook ou se é uma característica
-aceitável da conversão para esse formato.
+Nenhuma investigação técnica adicional necessária — causa raiz
+confirmada com evidência direta na fonte. Recomenda-se reportar o achado
+como insight de qualidade de dados ao time responsável pelo sistema RIS
+do hospital, já que é exatamente o tipo de lacuna de processo que uma
+ferramenta de Process Mining deve expor.
 
 ---
 
@@ -169,10 +187,13 @@ Nenhuma correção aplicada. A análise de Subcontracting (#3,
 para que uma futura correção na origem se reflita automaticamente no
 resultado, sem necessidade de ajustar filtros no notebook.
 
-### Ação futura recomendada
+### Atualização — 2026-07-02
 
-Investigar a coluna de origem do evento `Alta médica` em `silver_altas`,
-provável mapeamento de timestamp incorreto (ex: lendo de um campo que não
-representa esse evento especificamente). Após a correção, reexecutar a
-análise de Subcontracting Setor↔Setor para confirmar se o padrão
-Cirurgias↔Altas desaparece ou se revela um sinal real.
+Investigado diretamente na fonte. A discrepância de timestamp não é causada
+por mapeamento incorreto de coluna no pipeline — o dado já chega com esse
+registro na origem. Trata-se de erro de input operacional no sistema
+hospitalar. Nenhuma correção de pipeline aplicada ou necessária.
+
+**Decisão:** surfacing no dashboard executivo (Sprint 4), junto com demais
+inconsistências de qualidade de dados identificadas no projeto, para
+visibilidade da diretoria.
