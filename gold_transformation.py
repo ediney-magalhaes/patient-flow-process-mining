@@ -525,7 +525,7 @@ def gold_patient_journey():
     df_cirug = df_cirug.select(
         F.col("ATENDIMENTO").alias("CD_INTERNACAO"),
         F.col("CD_PACIENTE"),
-        F.col("DT_ATENDIMENTO").alias("DT_CIRURGIA"),
+        F.col("DATA_INICIO_CIRURGIA").alias("DT_CIRURGIA"),
         F.col("DT_HR_ENTRADA_SALA_CIRURG").alias("ts_entrada_cirurgia"),
         F.col("DT_HR_SAIDA_SALA_CIRURG").alias("ts_saida_cirurgia")
     )
