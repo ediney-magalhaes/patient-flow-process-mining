@@ -32,6 +32,8 @@ Documentação dos pipelines de ingestão, transformação e orquestração.
   - `gold_events_exames_laboratoriais` (60K registros)
   - `gold_event_log` (190K registros) — UNION ALL das 7 fontes com `duration_minutes`
   - `gold_case_attributes` (7.1K registros) — 15 atributos clínicos e demográficos
+  - `gold_patient_journey` (6.5K registros) — jornada cross-source do paciente,
+    6 tipos de jornada, timestamps de transição entre etapas e métricas de UTI
 
 ## Scripts de pré-processamento local
 
