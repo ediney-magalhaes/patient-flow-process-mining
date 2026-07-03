@@ -252,17 +252,23 @@ Free Edition. Alternativa: deploy manual ou scripts via REST API.
 - Padronização de timestamps
 - Vocabulário controlado de atividades (recepção, triagem, consulta, etc.)
 ### 4.3 Camada Gold
- 
-| Tabela | Granularidade | Propósito |
-|---|---|---|
-| `gold_event_log_xes` | 1 linha por evento | Input direto para PM4Py |
-| `gold_variants_summary` | 1 linha por variante de processo | Análise Pareto de fluxos |
-| `gold_bottlenecks` | 1 linha por transição entre atividades | Ranking de gargalos |
-| `gold_kpis_jornada` | Agregada por período/especialidade | KPIs executivos |
-| `gold_conformance_results` | 1 linha por caso (jornada) | Score de conformidade |
- 
+
+| Tabela | Granularidade | Propósito | Status |
+|---|---|---|---|
+| `gold_events_*` (7 tabelas) | 1 linha por evento por fonte | Eventos normalizados no schema canônico | ✅ Sprint 2 |
+| `gold_event_log` | 1 linha por evento (UNION ALL) | Event log unificado — input PM4Py | ✅ Sprint 2 |
+| `gold_case_attributes` | 1 linha por atendimento | Atributos clínicos e demográficos para enriquecimento | ✅ Sprint 2 |
+| `gold_data_quality` | 1 linha por fonte+atividade | Cobertura de timestamps por atividade e por caso | ✅ Sprint 2 |
+| `gold_variant_analysis` | 1 linha por variante | Ranking de variantes de processo por frequência | ✅ Sprint 3 |
+| `gold_bottleneck` | 1 linha por transição × período | Tempos de transição entre atividades por setor | ✅ Sprint 3 |
+| `gold_conformance` | 1 linha por fonte × período | Fitness e precisão por setor | ✅ Sprint 3 |
+| `gold_sna_handover` | 1 linha por handover × período | Fluxos de encaminhamento entre setores | ✅ Sprint 3 |
+| `gold_sna_subcontracting` | 1 linha por padrão A→B→A × período | Delegações temporárias entre setores | ✅ Sprint 3 |
+| `gold_performance_spectrum` | 1 linha por transição × mês × dia | Variação temporal do desempenho do processo | ✅ Sprint 3 |
+| `gold_patient_journey` | 1 linha por episódio completo | Jornada cross-source do paciente — 6 tipos de jornada | ✅ Sprint 4 |
+
 📖 **Dicionário completo:** [docs/03-data/data-dictionary.md](docs/03-data/data-dictionary.md)
- 
+  
 ---
  
 ## 5. Fluxo de Dados End-to-End
@@ -347,5 +353,5 @@ hospital_santa_rosa          (catalog)
 - [C4 Model](https://c4model.com/)
 ---
  
-**Última atualização:** Maio 2026 • **Sprint atual:** 1 — Bronze + Silver •
+**Última atualização:** Julho 2026 • **Sprint atual:** 4 — Entregáveis (Fase 1 concluída) •
 **Mantenedor:** [Ediney Magalhães](https://github.com/ediney-magalhaes)
