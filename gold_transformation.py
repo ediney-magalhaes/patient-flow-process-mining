@@ -525,9 +525,36 @@ def gold_patient_journey():
     df_cirug = df_cirug.select(
         F.col("ATENDIMENTO").alias("CD_INTERNACAO"),
         F.col("CD_PACIENTE"),
+        F.col("DT_ATENDIMENTO").alias("DT_CIRURGIA"),
         F.col("DT_HR_ENTRADA_SALA_CIRURG").alias("ts_entrada_cirurgia"),
         F.col("DT_HR_SAIDA_SALA_CIRURG").alias("ts_saida_cirurgia")
     )
+
+    # cirurgias de internação (CD_INTERNACAO existe em silver_internacoes)
+    df_cirug_internacao = df_cirug.join(
+        df_intern.select("CD_INTERNACAO"),
+        on="CD_INTERNACAO",
+        how="inner"
+    ).drop("CD_PACIENTE", "DT_CIRURGIA")
+
+    # cirurgias ambulatoriais (CD_INTERNACAO não existe em silver_internacoes)
+    df_cirug_ambulatorial = df_cirug.join(
+        df_intern.select("CD_INTERNACAO"),
+        on="CD_INTERNACAO",
+        how="left_anti"
+    )
+
+    # join de cirurgias ambulatoriais com emergência via CD_PACIENTE + janela temporal
+    df_cirug_ambulatorial = df_cirug_ambulatorial.join(
+        df_emerg.select("CD_ATENDIMENTO", "CD_PACIENTE", "DT_ATENDIMENTO"),
+        on=(
+            (df_cirug_ambulatorial["CD_PACIENTE"] == df_emerg["CD_PACIENTE"]) &
+            (df_cirug_ambulatorial["DT_CIRURGIA"] >= df_emerg["DT_ATENDIMENTO"]) &
+            (df_cirug_ambulatorial["DT_CIRURGIA"] <= F.date_add(df_emerg["DT_ATENDIMENTO"], 1))
+        ),
+        how="inner"
+    ).drop(df_emerg["CD_PACIENTE"], "DT_ATENDIMENTO", "DT_CIRURGIA") \
+     .withColumnRenamed("CD_ATENDIMENTO", "CD_ATENDIMENTO_AMBULATORIAL")
 
     # seleção das colunas necessárias na tabela de movimentações
     df_movim = df_movim.select(
@@ -627,9 +654,22 @@ def gold_patient_journey():
     ).groupBy("CD_INTERNACAO") \
      .agg(F.min("DT_HR_MOVIMENTACAO").alias("ts_primeiro_leito"))
 
-    # DataFrame da jornada com junção das tabelas de cirurgias e altas
+    # DataFrame da jornada com junção das tabelas de cirurgias, movimentações e altas
     df_journey = df_journey \
-        .join(df_cirug, on="CD_INTERNACAO", how="left") \
+        .join(df_cirug_internacao, on="CD_INTERNACAO", how="left") \
+        .join(
+            df_cirug_ambulatorial
+                .drop("CD_INTERNACAO", "CD_PACIENTE")
+                .withColumnRenamed("ts_entrada_cirurgia", "ts_entrada_cirurgia_amb")
+                .withColumnRenamed("ts_saida_cirurgia", "ts_saida_cirurgia_amb"),
+            on=F.col("CD_ATENDIMENTO") == F.col("CD_ATENDIMENTO_AMBULATORIAL"),
+            how="left"
+        ) \
+        .withColumn("ts_entrada_cirurgia",
+            F.coalesce(F.col("ts_entrada_cirurgia"), F.col("ts_entrada_cirurgia_amb"))) \
+        .withColumn("ts_saida_cirurgia",
+            F.coalesce(F.col("ts_saida_cirurgia"), F.col("ts_saida_cirurgia_amb"))) \
+        .drop("ts_entrada_cirurgia_amb", "ts_saida_cirurgia_amb", "CD_ATENDIMENTO_AMBULATORIAL") \
         .join(df_altas, on="CD_INTERNACAO", how="left") \
         .join(df_primeiro_leito, on="CD_INTERNACAO", how="left")
     
@@ -648,8 +688,11 @@ def gold_patient_journey():
     df_journey = df_journey.withColumn(
         "journey_type",
         F.when(
-            F.col("CD_ATENDIMENTO").isNotNull() & F.col("CD_INTERNACAO").isNull(),
+            F.col("CD_ATENDIMENTO").isNotNull() & F.col("CD_INTERNACAO").isNull() & F.col("ts_entrada_cirurgia").isNull(),
             F.lit("emergencia_pura")
+        ).when(
+            F.col("CD_ATENDIMENTO").isNotNull() & F.col("CD_INTERNACAO").isNull() & F.col("ts_entrada_cirurgia").isNotNull(),
+            F.lit("emergencia_cirurgia_ambulatorial")
         ).when(
             F.col("CD_ATENDIMENTO").isNotNull() & F.col("CD_INTERNACAO").isNotNull() & F.col("ts_entrada_cirurgia").isNull(),
             F.lit("emergencia_internacao_clinica")
