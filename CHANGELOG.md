@@ -194,6 +194,46 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
  
 **Previsão:** a definir
  
+#### Fase 1 — gold_patient_journey
+
+- ~~ Decisão arquitetural: como linkar `CD_ATENDIMENTO` ↔ `CD_INTERNACAO` para o mesmo episódio, pergunta de domínio antes de qualquer código~~
+- A tabela deve incluir `ano_mes` como dimensão obrigatória, seguindo o padrão estabelecido no
+  Sprint 3 para suportar séries temporais quando o histórico for carregado
+- Implementação no `gold_transformation.py`
+- Entrada no dicionário de dados
+- ADR correspondente
+
+#### Fase 2 — Dashboard AI/BI
+
+- Configuração da camada semântica (metric views) para o Genie Space, incluindo a dimensão temporal
+  `ano_mes` como filtro nativo, para que comparações mês a mês funcionem assim que o histórico entrar
+- Construção dos 4 blocos: jornada agregada, gargalo, conformidade, handover
+- Os visuais devem ser projetados para exibir tendência temporal, não só snapshot do mês atual,
+  mesmo que no momento da entrega só exista março/2026, os gráficos já devem ter o eixo de tempo pronto para receber meses subsequentes
+- Publicação e configuração de permissões de acesso
+- Documentação em `docs/06-deliverables/dashboard.md`
+
+#### Fase 3 — Databricks App
+
+- Setup do service principal e permissões Unity Catalog
+- Desenvolvimento direto no Databricks App (sem etapa local)
+- Filtros da interface: source, `ano_mes` (range de meses, não só mês único),
+  turno, threshold de ruído, o filtro de período deve aceitar seleção múltipla
+  de meses desde o início, porque com histórico o usuário vai querer comparar janelas
+- Visualizações: grafo de fluxo recalculável, performance spectrum, subcontracting
+- Árvore de processo (Graphviz) — item represado do Sprint 3
+- Deploy e validação
+- Documentação em `docs/06-deliverables/app.md`
+
+#### Fase 4 — ADRs e fechamento
+
+- ADR: escolha do AI/BI Dashboard (decisão #2 de hoje)
+- ADR: escolha do Databricks App (decisão #3 de hoje)
+- ADR: design da `gold_patient_journey` (decisão #1 + solução da Fase 1)
+- Atualização do `CHANGELOG.md`
+- Atualização do `README.md` (roadmap Sprint 4 → concluído)
+
+#### Resumo
 - Dashboard executivo
 - App interativo de Process Mining
 - Documentação dos entregáveis
