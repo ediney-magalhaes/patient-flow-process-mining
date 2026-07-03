@@ -489,3 +489,202 @@ def gold_data_quality():
     
     df = df_atividade.unionByName(df_global)
     return df
+
+@dlt.table(
+    name="gold_patient_journey",
+    comment="Jornada completa do paciente cross-source com timestamps de transição entre etapas"
+)
+def gold_patient_journey():
+    
+    # leitura das tabelas silvers
+    df_emerg = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_atendimento_emergencia")
+    df_intern = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_internacoes")
+    df_cirug = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_cirurgias")
+    df_movim = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_movimentacoes")
+    df_altas = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_altas")
+
+    # seleção das colunas necessárias na tabela da emergência
+    df_emerg = df_emerg.select(
+        F.col("CD_ATENDIMENTO"),
+        F.col("CD_PACIENTE"),
+        F.col("DT_ATENDIMENTO"),
+        F.col("DT_HR_TOTEM_RECEP").alias("ts_chegada"),
+        F.col("DT_HR_ALTA").alias("ts_alta_emergencia")
+    )
+
+    # seleção das colunas necessárias na tabela de internações
+    df_intern = df_intern.select(
+        F.col("CD_INTERNACAO"),
+        F.col("COD_PACIENTE").alias("CD_PACIENTE"),
+        F.col("DT_HR_ATENDIMENTO").alias("ts_entrada_internacao"),
+        F.col("DT_HR_ALTA").alias("ts_alta_internacao"),
+        F.col("ORIGEM_ATEND")
+    )
+
+    # seleção das colunas necessárias na tabela de cirurgias
+    df_cirug = df_cirug.select(
+        F.col("ATENDIMENTO").alias("CD_INTERNACAO"),
+        F.col("CD_PACIENTE"),
+        F.col("DT_HR_ENTRADA_SALA_CIRURG").alias("ts_entrada_cirurgia"),
+        F.col("DT_HR_SAIDA_SALA_CIRURG").alias("ts_saida_cirurgia")
+    )
+
+    # seleção das colunas necessárias na tabela de movimentações
+    df_movim = df_movim.select(
+        F.col("CD_INTERNACAO"),
+        F.col("TIPO").alias("tipo_movimentacao"),
+        F.col("ORIGEM").alias("origem_movimentacao"),
+        F.col("DESTINO").alias("destino_movimentacao"),
+        F.col("UNIDADE").alias("unidade_movimentacao"),
+        F.col("DT_HR_MOVIMENTACAO")
+    )
+
+    # seleção das colunas necessárias na tabela de altas
+    df_altas = df_altas.select(
+        F.col("ATENDIMENTO").alias("CD_INTERNACAO"),
+        F.col("DT_HR_ALTA_MEDICA").alias("ts_alta_medica"),
+        F.col("DT_HR_ALTA_FINAL").alias("ts_alta_final")
+    )
+
+    # join entre as tabelas da emergência e internação
+    df_emerg_intern = df_emerg.join(
+        df_intern,
+        on=(
+            (df_emerg["CD_PACIENTE"] == df_intern["CD_PACIENTE"]) &
+            (df_intern["ts_entrada_internacao"] >= df_emerg["DT_ATENDIMENTO"]) &
+            (df_intern["ts_entrada_internacao"] <= F.date_add(df_emerg["DT_ATENDIMENTO"], 1))
+        ),
+        how="left"
+    ).drop(df_intern["CD_PACIENTE"])
+
+    # prefixos de leito UTI
+    uti_prefixos = ["UTIA1", "UTIA2", "UTIB", "UCO", "UNP"]
+
+    # entrada na UTI (destino é leito de UTI)
+    condicao_entrada_uti = None
+    for prefixo in uti_prefixos:
+        cond = F.col("destino_movimentacao").startswith(prefixo)
+        if condicao_entrada_uti is None:
+            condicao_entrada_uti = cond
+        else:
+            condicao_entrada_uti = condicao_entrada_uti | cond
+
+    # saída real da UTI (origem é leito de UTI e destino não)
+    condicao_saida_uti = None
+    for prefixo in uti_prefixos:
+        cond = F.col("origem_movimentacao").startswith(prefixo)
+        if condicao_saida_uti is None:
+            condicao_saida_uti = cond
+        else:
+            condicao_saida_uti = condicao_saida_uti | cond
+    condicao_saida_uti = condicao_saida_uti & ~condicao_entrada_uti
+
+    # DataFrame para a primeira entrada na UTI
+    df_primeira_entrada_uti = df_movim.filter(condicao_entrada_uti) \
+        .groupBy("CD_INTERNACAO") \
+        .agg(F.min("DT_HR_MOVIMENTACAO").alias("ts_primeira_entrada_uti"))
+    
+    # DataFrame para a saída da UTI
+    df_ultima_saida_uti = df_movim.filter(condicao_saida_uti) \
+        .groupBy("CD_INTERNACAO") \
+        .agg(F.max("DT_HR_MOVIMENTACAO").alias("ts_ultima_saida_uti"))
+
+    # DataFrame para contagem de passagens na UTI
+    df_qtd_passagens_uti = df_movim.filter(condicao_entrada_uti) \
+        .groupBy("CD_INTERNACAO") \
+        .agg(F.count("DT_HR_MOVIMENTACAO").alias("qtd_passagens_uti"))
+
+    # DataFrame de entradas
+    df_entradas = df_movim.filter(condicao_entrada_uti) \
+        .select("CD_INTERNACAO", F.col("DT_HR_MOVIMENTACAO").alias("ts_entrada"))
+    
+    # DataFrame de saídas
+    df_saidas = df_movim.filter(condicao_saida_uti) \
+        .select("CD_INTERNACAO", F.col("DT_HR_MOVIMENTACAO").alias("ts_saida"))
+    
+    # DataFrame do tempo de duração em UTI (minutos)
+    df_duracao_uti = df_entradas.join(df_saidas, on="CD_INTERNACAO", how="left") \
+        .filter(F.col("ts_saida") > F.col("ts_entrada")) \
+        .groupBy("CD_INTERNACAO", "ts_entrada") \
+        .agg(F.min("ts_saida").alias("ts_saida_correspondente")) \
+        .withColumn("duracao_min", (F.unix_timestamp("ts_saida_correspondente") - F.unix_timestamp("ts_entrada")) / 60) \
+        .groupBy("CD_INTERNACAO") \
+        .agg(F.round(F.sum("duracao_min"), 0).cast("int").alias("duracao_total_uti_min"))
+    
+    # DataFrame sobre a jornada com internação em passagens pela UTI
+    df_journey = df_emerg_intern \
+        .join(df_primeira_entrada_uti, on="CD_INTERNACAO", how="left") \
+        .join(df_ultima_saida_uti, on="CD_INTERNACAO", how="left") \
+        .join(df_qtd_passagens_uti, on="CD_INTERNACAO", how="left") \
+        .join(df_duracao_uti, on="CD_INTERNACAO", how="left")
+    
+    # unidades extras para exclusão do primeiro movimento de leito
+    unidades_extras = ["BERCARIO - ALOJAMENTO CONJUNTO", "HEMODINAMICA", "OBSERVACAO PA", "EXTRA INTERNACAO"]
+
+    # DataFrame com o timestamp do primeiro leito físico real
+    df_primeiro_leito = df_movim.filter(
+        ~F.col("unidade_movimentacao").isin(unidades_extras)
+    ).groupBy("CD_INTERNACAO") \
+     .agg(F.min("DT_HR_MOVIMENTACAO").alias("ts_primeiro_leito"))
+
+    # DataFrame da jornada com junção das tabelas de cirurgias e altas
+    df_journey = df_journey \
+        .join(df_cirug, on="CD_INTERNACAO", how="left") \
+        .join(df_altas, on="CD_INTERNACAO", how="left") \
+        .join(df_primeiro_leito, on="CD_INTERNACAO", how="left")
+    
+    # adiciona colunas ao DataFrame da jornada
+    df_journey = df_journey \
+        .withColumn("has_uti", F.col("qtd_passagens_uti").isNotNull() & (F.col("qtd_passagens_uti") > 0)) \
+        .withColumn("has_internacao", F.col("CD_INTERNACAO").isNotNull()) \
+        .withColumn("has_cirurgia", F.col("ts_entrada_cirurgia").isNotNull()) \
+        .withColumn("ano_mes", F.date_format(F.coalesce(F.col("ts_chegada"), F.col("ts_entrada_internacao")), "yyyy-MM")) \
+        .withColumn("duracao_emergencia_internacao_min", (F.unix_timestamp("ts_entrada_internacao") - F.unix_timestamp("ts_chegada")) / 60) \
+        .withColumn("duracao_internacao_cirurgia_min", (F.unix_timestamp("ts_entrada_cirurgia") - F.unix_timestamp("ts_entrada_internacao")) / 60) \
+        .withColumn("duracao_cirurgia_leito_min", (F.unix_timestamp("ts_primeiro_leito") - F.unix_timestamp("ts_saida_cirurgia")) / 60) \
+        .withColumn("duracao_total_min", (F.unix_timestamp("ts_alta_final") - F.unix_timestamp(F.coalesce(F.col("ts_chegada"), F.col("ts_entrada_internacao")))) / 60)
+
+    # classificação das jornadas
+    df_journey = df_journey.withColumn(
+        "journey_type",
+        F.when(
+            F.col("CD_ATENDIMENTO").isNotNull() & F.col("CD_INTERNACAO").isNull(),
+            F.lit("emergencia_pura")
+        ).when(
+            F.col("CD_ATENDIMENTO").isNotNull() & F.col("CD_INTERNACAO").isNotNull() & F.col("ts_entrada_cirurgia").isNull(),
+            F.lit("emergencia_internacao_clinica")
+        ).when(
+            F.col("CD_ATENDIMENTO").isNotNull() & F.col("CD_INTERNACAO").isNotNull() & F.col("ts_entrada_cirurgia").isNotNull(),
+            F.lit("emergencia_internacao_cirurgica")
+        ).when(
+            F.col("CD_ATENDIMENTO").isNull() & F.col("CD_INTERNACAO").isNotNull() & F.col("ts_entrada_cirurgia").isNull(),
+            F.lit("internacao_direta_clinica")
+        ).otherwise(F.lit("internacao_direta_cirurgica"))
+    )
+
+    return df_journey.select(
+        F.col("CD_ATENDIMENTO").alias("cd_atendimento"),
+        F.col("CD_INTERNACAO").alias("cd_internacao"),
+        F.col("CD_PACIENTE").alias("cd_paciente"),
+        "journey_type",
+        "ano_mes",
+        "has_internacao",
+        "has_cirurgia",
+        "has_uti",
+        "qtd_passagens_uti",
+        "duracao_total_uti_min",
+        "ts_chegada",
+        "ts_entrada_internacao",
+        "ts_entrada_cirurgia",
+        "ts_saida_cirurgia",
+        "ts_primeiro_leito",
+        "ts_primeira_entrada_uti",
+        "ts_ultima_saida_uti",
+        "ts_alta_medica",
+        "ts_alta_final",
+        F.col("ORIGEM_ATEND").alias("origem_atendimento"),
+        "duracao_emergencia_internacao_min",
+        "duracao_internacao_cirurgia_min",
+        "duracao_cirurgia_leito_min",
+        "duracao_total_min"
+    )
