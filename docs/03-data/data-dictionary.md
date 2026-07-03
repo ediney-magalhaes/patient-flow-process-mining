@@ -506,6 +506,44 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 | especialidade_1_atras | string | Especialidade do setor intermediário | Sim |
 | frequencia | long | Número de ocorrências do padrão | Não |
 
+
+### gold_patient_journey
+
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Granularidade:** 1 linha por episódio completo do paciente (emergência, internação ou ambos)
+- **Origem:** `silver_atendimento_emergencia`, `silver_internacoes`, `silver_cirurgias`, `silver_movimentacoes`, `silver_altas`
+- **Volume referência:** 6.5K registros (mar/2026)
+- **Frequência de atualização:** a cada execução do pipeline `gold_transformations`, reprocessamento full
+- **Decisão arquitetural:** ADR-0011
+- **Colunas:**
+
+| Coluna | Tipo | Descrição | Nullable |
+|---|---|---|---|
+| `cd_atendimento` | string | Identificador do atendimento de emergência (hash SHA-256) | Sim — null em internações diretas |
+| `cd_internacao` | string | Identificador da internação (hash SHA-256) | Sim — null em emergências puras e cirurgias ambulatoriais |
+| `cd_paciente` | string | Identificador único do cadastro do paciente (hash SHA-256) — estável entre todos os módulos do HIS | Não |
+| `journey_type` | string | Tipo de jornada: `emergencia_pura`, `emergencia_cirurgia_ambulatorial`, `emergencia_internacao_clinica`, `emergencia_internacao_cirurgica`, `internacao_direta_clinica`, `internacao_direta_cirurgica` | Não |
+| `ano_mes` | string | Mês de início da jornada no formato `yyyy-MM` — âncora temporal para séries históricas | Não |
+| `has_internacao` | boolean | Indica se o episódio resultou em internação | Não |
+| `has_cirurgia` | boolean | Indica se o episódio envolveu procedimento cirúrgico | Não |
+| `has_uti` | boolean | Indica se o paciente passou pela UTI durante a internação | Não |
+| `qtd_passagens_uti` | int | Número de entradas distintas na UTI — entradas vindas de fora da UTI; transferências entre unidades intensivas contam como continuação | Sim |
+| `duracao_total_uti_min` | int | Soma das durações de todas as passagens pela UTI em minutos | Sim |
+| `ts_chegada` | timestamp | Primeiro registro do paciente na emergência (`DT_HR_TOTEM_RECEP`) | Sim |
+| `ts_entrada_internacao` | timestamp | Momento de abertura da internação (`DT_HR_ATENDIMENTO` de `silver_internacoes`) | Sim |
+| `ts_entrada_cirurgia` | timestamp | Momento de entrada na sala cirúrgica (`DT_HR_ENTRADA_SALA_CIRURG`) | Sim |
+| `ts_saida_cirurgia` | timestamp | Momento de saída da sala cirúrgica (`DT_HR_SAIDA_SALA_CIRURG`) | Sim |
+| `ts_primeiro_leito` | timestamp | Primeira movimentação para leito físico real — exclui unidades virtuais: `BERCARIO - ALOJAMENTO CONJUNTO`, `HEMODINAMICA`, `OBSERVACAO PA`, `EXTRA INTERNACAO` | Sim |
+| `ts_primeira_entrada_uti` | timestamp | Timestamp da primeira entrada em leito de UTI | Sim |
+| `ts_ultima_saida_uti` | timestamp | Timestamp da última saída real da UTI (origem UTI → destino não-UTI) | Sim |
+| `ts_alta_medica` | timestamp | Momento da alta médica (`DT_HR_ALTA_MEDICA` de `silver_altas`) | Sim |
+| `ts_alta_final` | timestamp | Momento da alta hospitalar final (`DT_HR_ALTA_FINAL` de `silver_altas`) | Sim |
+| `origem_atendimento` | string | Origem declarada da internação no HIS — campo com falhas de input manual, usar apenas como atributo informativo (ver RQ-006) | Sim |
+| `duracao_emergencia_internacao_min` | double | Minutos entre chegada à emergência e abertura da internação | Sim |
+| `duracao_internacao_cirurgia_min` | double | Minutos entre abertura da internação e entrada na sala cirúrgica | Sim |
+| `duracao_cirurgia_leito_min` | double | Minutos entre saída da sala cirúrgica e chegada ao primeiro leito físico | Sim |
+| `duracao_total_min` | double | Duração total da jornada em minutos — da chegada à alta final | Sim |
+
 ## event_log_[ano_mes].xes
 
 - **Descrição:** Event log completo exportado no formato padrão XES

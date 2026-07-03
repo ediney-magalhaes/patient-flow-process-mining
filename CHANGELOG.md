@@ -17,6 +17,26 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
  
 ## [Não Lançado]
 
+#### Sprint 4 — Entregáveis (em andamento)
+
+#### Adicionado
+
+- `gold_patient_journey` — tabela Gold cross-source com jornada completa do paciente,
+  cobrindo seis tipos de jornada: `emergencia_pura`, `emergencia_cirurgia_ambulatorial`,
+  `emergencia_internacao_clinica`, `emergencia_internacao_cirurgica`,
+  `internacao_direta_clinica`, `internacao_direta_cirurgica`
+- Cobertura de cirurgias ambulatoriais de emergência via anti join com `silver_internacoes`
+  e join por `CD_PACIENTE` + janela temporal de 1 dia usando `DATA_INICIO_CIRURGIA`
+- Métricas de UTI agregadas por episódio: `ts_primeira_entrada_uti`, `ts_ultima_saida_uti`,
+  `qtd_passagens_uti`, `duracao_total_uti_min`
+- `ts_primeiro_leito` excluindo unidades virtuais via coluna `UNIDADE`
+- ADR-0011: design da `gold_patient_journey`
+- RQ-006: `ORIGEM_ATEND` em `silver_internacoes` — campo com falhas de input manual
+
+#### Corrigido
+
+- Coluna `DT_CIRURGIA` em `silver_cirurgias` corrigida de `DT_ATENDIMENTO`
+  (inexistente) para `DATA_INICIO_CIRURGIA`
 
 #### Sprint 3 — Process Mining (concluído)
 
@@ -164,7 +184,7 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   (dados clínicos via `silver_epidemio`)
 ### [0.4.0] — Sprint 3: Process Mining
 
-**Previsão:** em andamento
+**Previsão:** concluído
 
 #### Fase 1 — Fundamentos e ambiente
 - Instalação e configuração do PM4Py no Databricks Free Edition
@@ -192,16 +212,15 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - Persistência dos modelos descobertos no schema `gold_fluxo`
 ### [0.5.0] — Sprint 4: Entregáveis
  
-**Previsão:** a definir
- 
+**Previsão:** em andamento
+
 #### Fase 1 — gold_patient_journey
 
 - ~~ Decisão arquitetural: como linkar `CD_ATENDIMENTO` ↔ `CD_INTERNACAO` para o mesmo episódio, pergunta de domínio antes de qualquer código~~
-- A tabela deve incluir `ano_mes` como dimensão obrigatória, seguindo o padrão estabelecido no
-  Sprint 3 para suportar séries temporais quando o histórico for carregado
-- Implementação no `gold_transformation.py`
-- Entrada no dicionário de dados
-- ADR correspondente
+- ~~A tabela deve incluir `ano_mes` como dimensão obrigatória, seguindo o padrão estabelecido no Sprint 3 para suportar séries temporais quando o histórico for carregado~~
+- ~~Implementação no `gold_transformation.py`~~
+- ~~Entrada no dicionário de dados~~
+- ~~ADR correspondente~~
 
 #### Fase 2 — Dashboard AI/BI
 

@@ -197,3 +197,32 @@ hospitalar. Nenhuma correção de pipeline aplicada ou necessária.
 **Decisão:** surfacing no dashboard executivo (Sprint 4), junto com demais
 inconsistências de qualidade de dados identificadas no projeto, para
 visibilidade da diretoria.
+
+## RQ-006: ORIGEM_ATEND em silver_internacoes — campo com falhas de input manual
+
+**Status:** Fechado — decisão tomada  
+**Tabela afetada:** `silver_internacoes`  
+**Coluna afetada:** `ORIGEM_ATEND`  
+**Descoberto em:** Sprint 4 — Fase 1 (gold_patient_journey)
+
+### Descrição
+
+O campo `ORIGEM_ATEND` de `silver_internacoes` registra a origem do paciente no
+momento da internação (ex: `EMERGENCIA ADULTO`, `EMERGENCIA INFANTIL`). O
+preenchimento é manual no HIS e apresenta inconsistências conhecidas: casos
+originados da emergência aparecem com origem incorreta, e vice-versa. Não existe
+processo de curadoria humana equivalente ao implementado no projeto BigQuery de
+emergência.
+
+### Impacto
+
+O campo não pode ser usado como critério de filtro em joins, pois excluiria
+casos reais de conversão emergência → internação registrados incorretamente.
+
+### Decisão
+
+`ORIGEM_ATEND` é mantido na `gold_patient_journey` como atributo informativo,
+com a ressalva de qualidade registrada nesta regra. A estratégia de junção
+entre emergência e internação usa `COD_PACIENTE` + janela temporal de 1 dia,
+conforme documentado em ADR-0011. Gestores e analistas que utilizarem esse
+campo para filtros devem estar cientes das limitações de confiabilidade.
