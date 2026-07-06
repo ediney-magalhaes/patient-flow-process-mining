@@ -43,12 +43,13 @@ def gold_events_movimentacoes():
     df = df.withColumn("resource", F.lit(None).cast("string"))
     df = df.withColumn("especialidade", F.lit(None).cast("string"))
     df = df.withColumn("source", F.lit("silver_movimentacoes"))
+    df = df.withColumn("ano_mes", F.date_format(F.col("timestamp"), "yyyy-MM"))
 
     # seleciona apenas as colunas do schema canônico na ordem correta
     return df.select(
         "case_id", "activity", "timestamp", "lifecycle",
         "event_type", "case_type", "outcome", "resource",
-        "especialidade", "location", "source"
+        "especialidade", "location", "source", "ano_mes"
     )
 
 @dlt.table(
@@ -90,8 +91,12 @@ def gold_events_internacoes():
                         "event_type", "case_type", "outcome", "resource",
                         "especialidade", "location", "source"
                 )
-    # seleciona apenas as colunas do schema canônico na ordem correta
-    return df_internacao.unionByName(df_alta)
+    # captura o resultado do union antes de retornar
+    df_resultado = df_internacao.unionByName(df_alta)
+    df_resultado = df_resultado.withColumn("ano_mes", F.date_format(F.col("timestamp"), "yyyy-MM"))
+
+    return df_resultado
+
 
 @dlt.table(
     name="gold_events_altas",
@@ -146,7 +151,9 @@ def gold_events_altas():
                            )
     
     # seleciona apenas as colunas do schema canônico na ordem correta
-    return df_prescricao_alta.unionByName(df_alta_medica).unionByName(df_alta_hospitalar)
+    df_result = df_prescricao_alta.unionByName(df_alta_medica).unionByName(df_alta_hospitalar)
+    df_result = df_result.withColumn("ano_mes", F.date_format(F.col("timestamp"), "yyyy-MM"))
+    return df_result
 
 @dlt.table(
     name="gold_events_cirurgias",
@@ -209,6 +216,7 @@ def gold_events_cirurgias():
         else:
             df_resultado = df_resultado.unionByName(df_evento)
     
+    df_resultado = df_resultado.withColumn("ano_mes", F.date_format(F.col("timestamp"), "yyyy-MM"))
     return df_resultado
 
 @dlt.table(
@@ -260,6 +268,7 @@ def gold_events_emergencia():
         else:
             df_resultado = df_resultado.unionByName(df_evento)
     
+    df_resultado = df_resultado.withColumn("ano_mes", F.date_format(F.col("timestamp"), "yyyy-MM"))
     return df_resultado
 
 @dlt.table(
@@ -319,6 +328,7 @@ def gold_events_exames_imagem():
         else:
             df_resultado = df_resultado.unionByName(df_eventos)
     
+    df_resultado = df_resultado.withColumn("ano_mes", F.date_format(F.col("timestamp"), "yyyy-MM"))
     return df_resultado
 
 @dlt.table(
@@ -364,6 +374,7 @@ def gold_events_exames_laboratoriais():
         else:
             df_resultado = df_resultado.unionByName(df_evento)
     
+    df_resultado = df_resultado.withColumn("ano_mes", F.date_format(F.col("timestamp"), "yyyy-MM"))
     return df_resultado
                       
 @dlt.table(
