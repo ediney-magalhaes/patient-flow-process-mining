@@ -545,6 +545,37 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 | `duracao_cirurgia_leito_min` | double | Minutos entre saída da sala cirúrgica e chegada ao primeiro leito físico | Sim |
 | `duracao_total_min` | double | Duração total da jornada em minutos — da chegada à alta final | Sim |
 
+### gold_bi_jornada (view)
+
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Tipo:** View — não armazena dados, executa query no momento do acesso
+- **Granularidade:** 1 linha por evento de emergência por jornada
+- **Origem:** `gold_patient_journey` (LEFT JOIN) + `gold_events_emergencia`
+- **Propósito:** Camada de abstração para BI — resolve a complexidade das
+  famílias de identificador (`cd_atendimento` = `case_id`) uma única vez,
+  expondo colunas com vocabulário de negócio para Dashboard e Genie Space
+- **Regra de join:** `gold_patient_journey.cd_atendimento = gold_events_emergencia.case_id`
+  via LEFT JOIN — preserva internações diretas onde `cd_atendimento` é nulo
+- **Colunas:**
+
+| Coluna | Tipo | Origem | Descrição |
+|---|---|---|---|
+| `cd_atendimento` | string | `gold_patient_journey` | Identificador do atendimento de emergência |
+| `cd_internacao` | string | `gold_patient_journey` | Identificador da internação |
+| `cd_paciente` | string | `gold_patient_journey` | Identificador do paciente |
+| `journey_type` | string | `gold_patient_journey` | Tipo de jornada (6 valores) |
+| `ano_mes` | string | `gold_patient_journey` | Mês de referência no formato `yyyy-MM` |
+| `has_internacao` | boolean | `gold_patient_journey` | Indica se houve internação |
+| `has_cirurgia` | boolean | `gold_patient_journey` | Indica se houve cirurgia |
+| `has_uti` | boolean | `gold_patient_journey` | Indica se houve passagem pela UTI |
+| `duracao_total_min` | double | `gold_patient_journey` | Duração total da jornada em minutos |
+| `duracao_emergencia_internacao_min` | double | `gold_patient_journey` | Minutos entre chegada e abertura da internação |
+| `activity` | string | `gold_events_emergencia` | Nome do evento de emergência |
+| `ts_evento` | timestamp | `gold_events_emergencia` | Timestamp do evento |
+| `event_type` | string | `gold_events_emergencia` | Tipo do evento |
+| `especialidade` | string | `gold_events_emergencia` | Especialidade médica do evento |
+| `resource` | string | `gold_events_emergencia` | Recurso associado ao evento |
+
 ## event_log_[ano_mes].xes
 
 - **Descrição:** Event log completo exportado no formato padrão XES

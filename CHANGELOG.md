@@ -32,6 +32,12 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - `ts_primeiro_leito` excluindo unidades virtuais via coluna `UNIDADE`
 - ADR-0011: design da `gold_patient_journey`
 - RQ-006: `ORIGEM_ATEND` em `silver_internacoes` — campo com falhas de input manual
+- View `gold_bi_jornada` criada no Unity Catalog (`hospital_santa_rosa.gold_fluxo`)
+  como camada de abstração para BI — resolve join entre `gold_patient_journey` e
+  `gold_events_emergencia` encapsulando a complexidade das famílias de identificador
+- Dashboard AI/BI "Mapa Digital do Fluxo do Paciente" criado com datasets
+  `gold_patient_journey` e `gold_bi_jornada` conectados; página "KPIs de Jornada"
+  iniciada com filtro global `ano_mes` e primeiro contador validado (06/07/2026)
 
 #### Corrigido
 
