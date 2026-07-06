@@ -248,7 +248,7 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 | `especialidade` | string | nullable | Especialidade médica associada ao evento. Cobertura e coluna de origem variam por fonte (ver ADR-0008 e RQ-002) |
 | `location` | string | nullable | Unidade ou sala onde o evento ocorreu |
 | `source` | string | obrigatório | Tabela Silver de origem do evento |
-| `duration_minutes` | int | nullable | Duração total do caso em minutos (diferença entre primeiro e último evento) |
+| `ano_mes` | string | obrigatório | Mês de referência do evento no formato `yyyy-MM` — âncora temporal para séries históricas e filtros mensais |
 
 ### gold_events_movimentacoes
 
@@ -336,7 +336,8 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
   `gold_events_cirurgias`, `gold_events_emergencia`, `gold_events_exames_imagem`,
   `gold_events_exames_laboratoriais`
 - **Volume referência:** 190K registros (mar/2026)
-- **Colunas adicionais:** `duration_minutes` — duração total do caso em minutos,
+- **Colunas adicionais:** `ano_mes` — herdada via `unionByName` das sete tabelas
+  `gold_events_*`; `duration_minutes` — duração total do caso em minutos,
   calculada via Window function particionada por `case_id`
 - **Nota:** tabela central do projeto — fonte primária para análises de Process Mining
   com PM4Py no Sprint 3

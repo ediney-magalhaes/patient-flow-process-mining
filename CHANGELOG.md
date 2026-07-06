@@ -37,6 +37,13 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 
 - Coluna `DT_CIRURGIA` em `silver_cirurgias` corrigida de `DT_ATENDIMENTO`
   (inexistente) para `DATA_INICIO_CIRURGIA`
+- `ano_mes` ausente em todas as tabelas `gold_events_*` (`gold_events_altas`,
+  `gold_events_cirurgias`, `gold_events_emergencia`, `gold_events_exames_imagem`,
+  `gold_events_exames_laboratoriais`, `gold_events_internacoes`,
+  `gold_events_movimentacoes`), coluna obrigatória do schema canônico Gold
+  adicionada via `F.date_format(F.col("timestamp"), "yyyy-MM")` em cada função
+  do `gold_transformation.py`. Pipeline reprocessado com Full Refresh em
+  06/07/2026
 
 #### Sprint 3 — Process Mining (concluído)
 
@@ -224,13 +231,51 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 
 #### Fase 2 — Dashboard AI/BI
 
-- Configuração da camada semântica (metric views) para o Genie Space, incluindo a dimensão temporal
-  `ano_mes` como filtro nativo, para que comparações mês a mês funcionem assim que o histórico entrar
-- Construção dos 4 blocos: jornada agregada, gargalo, conformidade, handover
-- Os visuais devem ser projetados para exibir tendência temporal, não só snapshot do mês atual,
-  mesmo que no momento da entrega só exista março/2026, os gráficos já devem ter o eixo de tempo pronto para receber meses subsequentes
-- Publicação e configuração de permissões de acesso
-- Documentação em `docs/06-deliverables/dashboard.md`
+**Passo 1 — View `gold_bi_jornada`** (pré-condição para Passos 2 e 3)
+- Criar no Unity Catalog (`gold_fluxo`) uma view que resolve o join entre
+  `gold_patient_journey` e `gold_events_atendimento`, encapsulando a lógica
+  de família de identificador (CD_ATENDIMENTO) e expondo colunas com
+  vocabulário de negócio
+- Essa view é a única camada de abstração para BI — não serão criadas
+  tabelas/views adicionais neste sprint
+
+**Passo 2 — Dashboard único (AI/BI Dashboard)**
+- Um único dashboard com quatro blocos organizados em seções visuais
+  scrolláveis (sem navegação por abas — comportamento nativo da ferramenta)
+- Filtro global de `ano_mes` e `tipo_jornada` aplicando sobre todos os blocos
+- Seção 1 — KPIs de jornada agregada → fonte: `gold_patient_journey`
+- Seção 2 — Análise de gargalos → fonte: `gold_patient_journey` +
+  `gold_bi_jornada`
+- Seção 3 — Conformance checking → fonte: `gold_patient_journey`
+- Seção 4 — Handover / SNA → fonte: `gold_events_atendimento`
+- Todos os visuais projetados com eixo temporal pronto para receber meses
+  subsequentes — mesmo que no momento da entrega só exista março/2026
+
+**Passo 3 — Genie Space**
+- Escopo restrito: `gold_patient_journey` + `gold_bi_jornada` +
+  `gold_events_atendimento`
+  - `gold_patient_journey`: perguntas sobre jornada completa e métricas
+    consolidadas
+  - `gold_events_atendimento`: perguntas com granularidade de evento dentro
+    da emergência (ex: tempo entre triagem e consulta)
+  - Demais `gold_events_*` fora do escopo neste sprint — revisão após
+    validação com stakeholders
+- Configuração semântica: descrições de tabela/coluna (adaptadas do
+  `data-dictionary.md`), instruções gerais para regras de negócio críticas
+  (famílias de identificador, prefixos de UTI), ~10 consultas certificadas
+  para perguntas de alta frequência
+- Decisão sobre uso de metric views (camada semântica estruturada do Unity
+  Catalog) a ser tomada durante a execução deste passo, após exploração
+  da ferramenta
+
+**Passo 4 — Permissões e publicação**
+- Configurar acesso no Unity Catalog para os perfis de consumo (gestores
+  do hospital) para Dashboard e Genie Space
+
+**Passo 5 — Documentação**
+- `docs/06-deliverables/dashboard.md` cobrindo Dashboard e Genie Space
+- Os dois ADRs pendentes (escolha do AI/BI Dashboard e do Databricks App)
+  ficam para a Fase 4 conforme planejado
 
 #### Fase 3 — Databricks App
 
