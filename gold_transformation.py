@@ -693,7 +693,7 @@ def gold_patient_journey():
         .withColumn("duracao_emergencia_internacao_min", (F.unix_timestamp("ts_entrada_internacao") - F.unix_timestamp("ts_chegada")) / 60) \
         .withColumn("duracao_internacao_cirurgia_min", (F.unix_timestamp("ts_entrada_cirurgia") - F.unix_timestamp("ts_entrada_internacao")) / 60) \
         .withColumn("duracao_cirurgia_leito_min", (F.unix_timestamp("ts_primeiro_leito") - F.unix_timestamp("ts_saida_cirurgia")) / 60) \
-        .withColumn("duracao_total_min", (F.unix_timestamp("ts_alta_final") - F.unix_timestamp(F.coalesce(F.col("ts_chegada"), F.col("ts_entrada_internacao")))) / 60)
+        .withColumn("duracao_total_min", (F.unix_timestamp(F.coalesce(F.col("ts_alta_final"), F.col("ts_alta_emergencia"))) - F.unix_timestamp(F.coalesce(F.col("ts_chegada"), F.col("ts_entrada_internacao")))) / 60)
 
     # classificação das jornadas
     df_journey = df_journey.withColumn(
