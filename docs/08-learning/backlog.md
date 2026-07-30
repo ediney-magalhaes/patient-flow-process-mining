@@ -17,6 +17,10 @@ histórico de conversas.
 - [ ] `python -m` (execução como módulo) vs. execução direta de script —
   resolução de `sys.path` e por que imports absolutos (`from src...`)
   exigem o primeiro — 2026-06-24
+- [ ] Integração cross-cloud pré-hash (BigQuery → pandas local): por que a
+  ordem join→hash importa para preservar a chave de vínculo, e como
+  Application Default Credentials evita hardcode de caminho de credencial
+  entre projetos/máquinas diferentes — 2026-07-30
 
 ## Nota sobre lacuna histórica
 
