@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 from src.anonymization.config import ColumnConfig
 from src.anonymization.operations import drop_columns, generalize_birth_date, hash_value
+from src.anonymization.enrichment import get_competencias, buscar_conversao_curada
 
 #carrega variável de ambiente
 load_dotenv()
@@ -23,6 +24,13 @@ def anonymize_file(filepath: str, config: ColumnConfig, output_dir: str) -> str:
         df = pd.read_csv(filepath, encoding="latin-1", sep=";")
     else:
         df = pd.read_excel(filepath)
+
+    #se a config sinalizar, enriquece com a taxa de conversão curada do outro projeto
+    if config.enrich_conversao_curada:
+        competencias = get_competencias(df, "DT_ATENDIMENTO")
+        conversao_curada = buscar_conversao_curada(competencias)
+        df = df.merge(conversao_curada, left_on="CD_ATENDIMENTO", right_on="atend_PA", how="left")
+        df = df.drop(columns=["atend_PA"])
 
     #exclui as colunas "descartáveis"
     df = drop_columns(df, config.drop_columns)

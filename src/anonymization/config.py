@@ -6,6 +6,7 @@ class ColumnConfig(BaseModel):
     hash_columns: list[str]
     drop_columns: list[str]
     generalize_columns: dict[str, str] = {}
+    enrich_conversao_curada: bool = False
 
 
 ANONYMIZATION_CONFIGS: list[ColumnConfig] = [
@@ -30,6 +31,7 @@ ANONYMIZATION_CONFIGS: list[ColumnConfig] = [
         generalize_columns={
             "DT_NASC": "age_only",
         },
+        enrich_conversao_curada=True,
     ),
     ColumnConfig(
         name="internacoes",
