@@ -520,7 +520,10 @@ def gold_patient_journey():
         F.col("CD_PACIENTE"),
         F.col("DT_ATENDIMENTO"),
         F.col("DT_HR_TOTEM_RECEP").alias("ts_chegada"),
-        F.col("DT_HR_ALTA").alias("ts_alta_emergencia")
+        F.col("DT_HR_ALTA").alias("ts_alta_emergencia"),
+        F.col("fl_conversao"),
+        F.col("fl_evasao"),
+        F.col("atend_internacao")
     )
 
     # seleção das colunas necessárias na tabela de internações
@@ -584,14 +587,12 @@ def gold_patient_journey():
         F.col("DT_HR_ALTA_FINAL").alias("ts_alta_final")
     )
 
-    # join entre as tabelas da emergência e internação
+    # join entre as tabelas da emergência e internação — via atend_internacao (chave curada)
+    # left join a partir do df_emerg completo: quem não converteu tem atend_internacao nula
+    # e naturalmente não encontra correspondência, preservando a linha na jornada
     df_emerg_intern = df_emerg.join(
         df_intern,
-        on=(
-            (df_emerg["CD_PACIENTE"] == df_intern["CD_PACIENTE"]) &
-            (df_intern["ts_entrada_internacao"] >= df_emerg["DT_ATENDIMENTO"]) &
-            (df_intern["ts_entrada_internacao"] <= F.date_add(df_emerg["DT_ATENDIMENTO"], 1))
-        ),
+        on=(df_emerg["atend_internacao"] == df_intern["CD_INTERNACAO"]),
         how="left"
     ).drop(df_intern["CD_PACIENTE"])
 
@@ -687,7 +688,6 @@ def gold_patient_journey():
     # adiciona colunas ao DataFrame da jornada
     df_journey = df_journey \
         .withColumn("has_uti", F.col("qtd_passagens_uti").isNotNull() & (F.col("qtd_passagens_uti") > 0)) \
-        .withColumn("has_internacao", F.col("CD_INTERNACAO").isNotNull()) \
         .withColumn("has_cirurgia", F.col("ts_entrada_cirurgia").isNotNull()) \
         .withColumn("ano_mes", F.date_format(F.coalesce(F.col("ts_chegada"), F.col("ts_entrada_internacao")), "yyyy-MM")) \
         .withColumn("duracao_emergencia_internacao_min", (F.unix_timestamp("ts_entrada_internacao") - F.unix_timestamp("ts_chegada")) / 60) \
@@ -699,19 +699,19 @@ def gold_patient_journey():
     df_journey = df_journey.withColumn(
         "journey_type",
         F.when(
-            F.col("CD_ATENDIMENTO").isNotNull() & F.col("CD_INTERNACAO").isNull() & F.col("ts_entrada_cirurgia").isNull(),
+            F.col("CD_ATENDIMENTO").isNotNull() & (F.col("fl_conversao") == 0) & F.col("ts_entrada_cirurgia").isNull(),
             F.lit("emergencia_pura")
         ).when(
-            F.col("CD_ATENDIMENTO").isNotNull() & F.col("CD_INTERNACAO").isNull() & F.col("ts_entrada_cirurgia").isNotNull(),
+            F.col("CD_ATENDIMENTO").isNotNull() & (F.col("fl_conversao") == 0) & F.col("ts_entrada_cirurgia").isNotNull(),
             F.lit("emergencia_cirurgia_ambulatorial")
         ).when(
-            F.col("CD_ATENDIMENTO").isNotNull() & F.col("CD_INTERNACAO").isNotNull() & F.col("ts_entrada_cirurgia").isNull(),
+            F.col("CD_ATENDIMENTO").isNotNull() & (F.col("fl_conversao") == 1) & F.col("ts_entrada_cirurgia").isNull(),
             F.lit("emergencia_internacao_clinica")
         ).when(
-            F.col("CD_ATENDIMENTO").isNotNull() & F.col("CD_INTERNACAO").isNotNull() & F.col("ts_entrada_cirurgia").isNotNull(),
+            F.col("CD_ATENDIMENTO").isNotNull() & (F.col("fl_conversao") == 1) & F.col("ts_entrada_cirurgia").isNotNull(),
             F.lit("emergencia_internacao_cirurgica")
         ).when(
-            F.col("CD_ATENDIMENTO").isNull() & F.col("CD_INTERNACAO").isNotNull() & F.col("ts_entrada_cirurgia").isNull(),
+            F.col("CD_ATENDIMENTO").isNull() & (F.col("fl_conversao") == 1) & F.col("ts_entrada_cirurgia").isNull(),
             F.lit("internacao_direta_clinica")
         ).otherwise(F.lit("internacao_direta_cirurgica"))
     )
@@ -722,7 +722,8 @@ def gold_patient_journey():
         F.col("CD_PACIENTE").alias("cd_paciente"),
         "journey_type",
         "ano_mes",
-        "has_internacao",
+        "fl_conversao",
+        "fl_evasao",
         "has_cirurgia",
         "has_uti",
         "qtd_passagens_uti",
