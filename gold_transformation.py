@@ -551,8 +551,14 @@ def gold_patient_journey():
         df_intern.select("CD_INTERNACAO"),
         on="CD_INTERNACAO",
         how="inner"
-    ).filter(F.col("SN_PRINCIPAL") == "SIM") \
-     .drop("CD_PACIENTE", "DT_CIRURGIA", "SN_PRINCIPAL")
+    ).filter(F.col("SN_PRINCIPAL") == "SIM")
+
+    # desempata por CD_AVISO_CIRURGIA quando há múltiplos SN_PRINCIPAL='SIM' na mesma internação
+    janela_principal = Window.partitionBy("CD_INTERNACAO").orderBy(F.col("DT_CIRURGIA").desc_nulls_last())
+    df_cirug_internacao = df_cirug_internacao \
+        .withColumn("_rn", F.row_number().over(janela_principal)) \
+        .filter(F.col("_rn") == 1) \
+        .drop("_rn", "CD_PACIENTE", "DT_CIRURGIA", "SN_PRINCIPAL")
 
     # cirurgias ambulatoriais (CD_INTERNACAO não existe em silver_internacoes)
     # filtra apenas o procedimento principal — mesmo cuidado do bloco de internação
@@ -571,8 +577,15 @@ def gold_patient_journey():
             (df_cirug_ambulatorial["DT_CIRURGIA"] <= F.date_add(df_emerg["DT_ATENDIMENTO"], 1))
         ),
         how="inner"
-    ).drop(df_emerg["CD_PACIENTE"], "DT_ATENDIMENTO", "DT_CIRURGIA", "SN_PRINCIPAL") \
+    ).drop(df_emerg["CD_PACIENTE"], "DT_ATENDIMENTO", "SN_PRINCIPAL") \
      .withColumnRenamed("CD_ATENDIMENTO", "CD_ATENDIMENTO_AMBULATORIAL")
+
+    # desempate por episódio de emergência
+    janela_principal_amb = Window.partitionBy("CD_ATENDIMENTO_AMBULATORIAL").orderBy(F.col("DT_CIRURGIA").desc_nulls_last())
+    df_cirug_ambulatorial = df_cirug_ambulatorial \
+        .withColumn("_rn", F.row_number().over(janela_principal_amb)) \
+        .filter(F.col("_rn") == 1) \
+        .drop("_rn", "DT_CIRURGIA")
 
     # seleção das colunas necessárias na tabela de movimentações
     df_movim = df_movim.select(
