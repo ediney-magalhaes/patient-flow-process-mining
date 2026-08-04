@@ -541,22 +541,26 @@ def gold_patient_journey():
         F.col("CD_PACIENTE"),
         F.col("DATA_INICIO_CIRURGIA").alias("DT_CIRURGIA"),
         F.col("DT_HR_ENTRADA_SALA_CIRURG").alias("ts_entrada_cirurgia"),
-        F.col("DT_HR_SAIDA_SALA_CIRURG").alias("ts_saida_cirurgia")
+        F.col("DT_HR_SAIDA_SALA_CIRURG").alias("ts_saida_cirurgia"),
+        F.col("SN_PRINCIPAL")
     )
 
     # cirurgias de internação (CD_INTERNACAO existe em silver_internacoes)
+    # filtra apenas o procedimento principal — evita fan-out quando há múltiplos procedimentos na mesma internação
     df_cirug_internacao = df_cirug.join(
         df_intern.select("CD_INTERNACAO"),
         on="CD_INTERNACAO",
         how="inner"
-    ).drop("CD_PACIENTE", "DT_CIRURGIA")
+    ).filter(F.col("SN_PRINCIPAL") == "SIM") \
+     .drop("CD_PACIENTE", "DT_CIRURGIA", "SN_PRINCIPAL")
 
     # cirurgias ambulatoriais (CD_INTERNACAO não existe em silver_internacoes)
+    # filtra apenas o procedimento principal — mesmo cuidado do bloco de internação
     df_cirug_ambulatorial = df_cirug.join(
         df_intern.select("CD_INTERNACAO"),
         on="CD_INTERNACAO",
         how="left_anti"
-    )
+    ).filter(F.col("SN_PRINCIPAL") == "SIM")
 
     # join de cirurgias ambulatoriais com emergência via CD_PACIENTE + janela temporal
     df_cirug_ambulatorial = df_cirug_ambulatorial.join(
@@ -567,7 +571,7 @@ def gold_patient_journey():
             (df_cirug_ambulatorial["DT_CIRURGIA"] <= F.date_add(df_emerg["DT_ATENDIMENTO"], 1))
         ),
         how="inner"
-    ).drop(df_emerg["CD_PACIENTE"], "DT_ATENDIMENTO", "DT_CIRURGIA") \
+    ).drop(df_emerg["CD_PACIENTE"], "DT_ATENDIMENTO", "DT_CIRURGIA", "SN_PRINCIPAL") \
      .withColumnRenamed("CD_ATENDIMENTO", "CD_ATENDIMENTO_AMBULATORIAL")
 
     # seleção das colunas necessárias na tabela de movimentações
