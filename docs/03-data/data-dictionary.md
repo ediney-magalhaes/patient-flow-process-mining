@@ -107,12 +107,17 @@ Lakeflow Declarative Pipelines (pipeline `silver_transformations`).
 - **Granularidade:** 1 linha por atendimento de emergência (deduplicada por CD_ATENDIMENTO)
 - **Origem:** `bronze_atendimento_emergencia_raw`
 - **Volume referência:** 6.236 registros (mar/2026)
+- **Enriquecimento externo:** colunas `fl_conversao`, `fl_evasao` e `atend_internacao` 
+  incorporadas via `enrichment.py` a partir de dados curados do BigQuery 
+  (`pipeline-analytics-emergencia.marts.atendimentos_pa`) antes da anonimização — 
+  `atend_internacao` recebe hash SHA-256 igual a `CD_ATENDIMENTO`, para permitir 
+  join direto com `silver_internacoes.CD_INTERNACAO` na Gold
 - **Transformações aplicadas:**
   - Filtro por empresa (`EMPRESA = 'HSR'`)
   - Tipagem de 13 colunas de timestamp (string → timestamp)
   - Tipagem de data de atendimento (string → date)
   - Tipagem de colunas numéricas (`IDADE`, `COD_TRIAGEM`, `REGISTRO_ANS`, 
-    `IDADE_CALCULADA` → integer)
+    `IDADE_CALCULADA`, `fl_conversao`, `fl_evasao` → integer)
   - Padronização de classificação de risco (`AMARELO1` → `AMARELO`)
   - 4 flags de consistência temporal: `flag_totem_classif`, `flag_classif_recep`, 
     `flag_recep_atend`, `flag_atend_alta`
@@ -133,7 +138,7 @@ Lakeflow Declarative Pipelines (pipeline `silver_transformations`).
 - **Transformações aplicadas:**
   - Correção de encoding (`MASCULIN0` → `MASCULINO`, `INTERNAC?O` → `INTERNACAO`)
   - Tipagem de 13 colunas de timestamp (string → timestamp)
-  - Tipagem de colunas numéricas (`IDADE`, `CD_AVISO_CIRURGIA`, `CD_CIRURGIA_AVISO`, 
+  - Tipagem de colunas numéricas (`IDADE`, `CD_CIRURGIA_AVISO`, 
     `CODIGO_CIRURGIA`, `COD_FATURAMENTO` → integer)
   - 5 flags de consistência temporal: `flag_entrada_anestesia`, `flag_anestesia_cirurgia`, 
     `flag_cirurgia_fim`, `flag_fim_anestesia`, `flag_anestesia_saida`
@@ -142,6 +147,9 @@ Lakeflow Declarative Pipelines (pipeline `silver_transformations`).
   `flag_cirurgia_fim`, `flag_fim_anestesia`, `flag_anestesia_saida`
 - **Nota:** coluna `SN_PRINCIPAL` identifica o procedimento principal de cada 
   sessão cirúrgica — usar na Gold para deduplicar por atendimento quando necessário
+- **Nota:** `CD_AVISO_CIRURGIA` é anonimizada via hash SHA-256 na origem (config 
+  `hash_columns` de `cirurgias`) — **não deve receber `.cast("int")`**, o cast 
+  falha silenciosamente e zera a coluna sem lançar erro (ver RQ pendente de numeração)
 - **Pendente:** correção de encoding na coluna `DESCRICAO_CIRURGIA` (depende de 
   identificar encoding do CSV de origem)
 
@@ -523,9 +531,10 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 | `cd_atendimento` | string | Identificador do atendimento de emergência (hash SHA-256) | Sim — null em internações diretas |
 | `cd_internacao` | string | Identificador da internação (hash SHA-256) | Sim — null em emergências puras e cirurgias ambulatoriais |
 | `cd_paciente` | string | Identificador único do cadastro do paciente (hash SHA-256) — estável entre todos os módulos do HIS | Não |
-| `journey_type` | string | Tipo de jornada: `emergencia_pura`, `emergencia_cirurgia_ambulatorial`, `emergencia_internacao_clinica`, `emergencia_internacao_cirurgica`, `internacao_direta_clinica`, `internacao_direta_cirurgica` | Não |
+| `journey_type` | string | Tipo de jornada: `emergencia_pura`, `emergencia_cirurgia_ambulatorial`, `emergencia_internacao_clinica`, `emergencia_internacao_cirurgica`, `internacao_direta_clinica`, `internacao_direta_cirurgica`. Classificação de conversão emergência→internação baseada em `fl_conversao` (curado), não mais em presença física de `cd_internacao` — ver ADR pendente de numeração | Não |
 | `ano_mes` | string | Mês de início da jornada no formato `yyyy-MM` — âncora temporal para séries históricas | Não |
-| `has_internacao` | boolean | Indica se o episódio resultou em internação | Não |
+| `fl_conversao` | int | Indica se o atendimento de emergência converteu para internação — curado via `pipeline-analytics-emergencia.marts.atendimentos_pa` (BigQuery), substitui o antigo critério algorítmico | Não |
+| `fl_evasao` | int | Indica se o paciente evadiu do atendimento de emergência sem alta formal — mesma fonte curada de `fl_conversao` | Não |
 | `has_cirurgia` | boolean | Indica se o episódio envolveu procedimento cirúrgico | Não |
 | `has_uti` | boolean | Indica se o paciente passou pela UTI durante a internação | Não |
 | `qtd_passagens_uti` | int | Número de entradas distintas na UTI — entradas vindas de fora da UTI; transferências entre unidades intensivas contam como continuação | Sim |
@@ -565,7 +574,7 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 | `cd_paciente` | string | `gold_patient_journey` | Identificador do paciente |
 | `journey_type` | string | `gold_patient_journey` | Tipo de jornada (6 valores) |
 | `ano_mes` | string | `gold_patient_journey` | Mês de referência no formato `yyyy-MM` |
-| `has_internacao` | boolean | `gold_patient_journey` | Indica se houve internação |
+| `fl_conversao` | int | `gold_patient_journey` | Indica se o atendimento converteu para internação (fonte curada) |
 | `has_cirurgia` | boolean | `gold_patient_journey` | Indica se houve cirurgia |
 | `has_uti` | boolean | `gold_patient_journey` | Indica se houve passagem pela UTI |
 | `duracao_total_min` | double | `gold_patient_journey` | Duração total da jornada em minutos |

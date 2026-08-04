@@ -222,7 +222,97 @@ casos reais de conversão emergência → internação registrados incorretament
 ### Decisão
 
 `ORIGEM_ATEND` é mantido na `gold_patient_journey` como atributo informativo,
-com a ressalva de qualidade registrada nesta regra. A estratégia de junção
-entre emergência e internação usa `COD_PACIENTE` + janela temporal de 1 dia,
-conforme documentado em ADR-0011. Gestores e analistas que utilizarem esse
-campo para filtros devem estar cientes das limitações de confiabilidade.
+com a ressalva de qualidade registrada nesta regra. Gestores e analistas que
+utilizarem esse campo para filtros devem estar cientes das limitações de
+confiabilidade.
+
+**Atualização — 2026-08-04:** a estratégia de junção entre emergência e
+internação deixou de usar `COD_PACIENTE` + janela temporal de 1 dia — o
+join hoje é direto por `atend_internacao == CD_INTERNACAO`, usando o
+identificador de internação curado pelo projeto BigQuery (ver ADR pendente
+de numeração). `ORIGEM_ATEND` continua com a mesma limitação de
+confiabilidade descrita acima; a mudança de critério de join não afeta esta
+regra.
+
+## RQ-007 — Cast silencioso em coluna anonimizada (`CD_AVISO_CIRURGIA`)
+
+- **Tabela de origem:** `silver_cirurgias`
+- **Campo afetado:** `CD_AVISO_CIRURGIA`
+- **Data do achado:** 2026-08-04
+- **Contexto:** Sprint 4 — Fase 2 (investigação de fan-out em `gold_patient_journey`)
+
+### Achado
+
+`CD_AVISO_CIRURGIA` está listada em `hash_columns` na config de anonimização
+de `cirurgias` (`config.py`) — anonimizada via SHA-256 antes do upload para
+o Databricks, corretamente, por ser identificador de episódio cirúrgico.
+Porém a transformação `silver_cirurgias` aplicava `.cast("int")` sobre essa
+coluna, herdado do tratamento de outras colunas numéricas da mesma tabela
+(`CODIGO_CIRURGIA`, `COD_FATURAMENTO`).
+
+Cast de string não-numérica (hash SHA-256) para `int` no PySpark **não
+lança exceção** — retorna `null` silenciosamente. A coluna chegava com
+100% de cobertura na Bronze e 0% na Silver, sem nenhum erro visível no
+pipeline.
+
+### Causa raiz
+
+Decisão de anonimização (Sprint 0, `config.py`) e decisão de tipagem
+(Sprint 1, `silver_cirurgias`) foram tomadas em momentos diferentes, sem
+checagem cruzada entre "colunas hasheadas" e "colunas com cast numérico"
+para essa tabela.
+
+### Decisão
+
+`.cast("int")` removido de `CD_AVISO_CIRURGIA` em `silver_cirurgias`. A
+coluna permanece como `string` (hash), consistente com seu papel de
+identificador anonimizado.
+
+### Ação futura recomendada
+
+Ao adicionar cast numérico em qualquer coluna de uma tabela Silver, checar
+antes se essa coluna está em `hash_columns` da config de anonimização
+correspondente. Vale considerar, no futuro, uma validação automatizada
+(teste ou expectation) que sinalize colunas hasheadas com cast numérico
+aplicado — hoje a checagem é manual.
+
+## RQ-008 — Fan-out em `gold_patient_journey` por múltiplos procedimentos principais
+
+- **Tabela de origem:** `silver_cirurgias`
+- **Campo afetado:** `SN_PRINCIPAL`
+- **Data do achado:** 2026-08-04
+- **Contexto:** Sprint 4 — Fase 2 (integração `fl_conversao` curado)
+
+### Achado
+
+`SN_PRINCIPAL = 'SIM'` não é único por internação: 35 internações em
+março/2026 têm mais de um procedimento marcado como principal (até 5 em
+um caso). Isso indica múltiplos avisos/episódios cirúrgicos legítimos na
+mesma internação (reintervenções), não erro de cadastro — mas sem
+`CD_AVISO_CIRURGIA` disponível (ver RQ-007), não havia como diferenciar
+episódios distintos, causando fan-out ao juntar `silver_cirurgias` com
+`gold_patient_journey` (linhas duplicadas por internação).
+
+### Causa raiz
+
+Combinação de dois fatores: granularidade de `silver_cirurgias` é por
+procedimento, não por internação; e o campo que identificaria o episódio
+(`CD_AVISO_CIRURGIA`) estava indisponível por causa do RQ-007.
+
+### Decisão
+
+Após a correção do RQ-007, `df_cirug_internacao` e `df_cirug_ambulatorial`
+em `gold_patient_journey` passam por desempate via `row_number()`,
+mantendo o procedimento principal mais recente por episódio quando há mais
+de um `SN_PRINCIPAL = 'SIM'` — partição por `CD_INTERNACAO` (internação)
+ou por `CD_ATENDIMENTO_AMBULATORIAL` (ambulatorial, após join com a
+emergência, para não descartar episódios de pacientes com mais de uma
+passagem pela emergência).
+
+### Ação futura recomendada
+
+Nenhuma correção adicional necessária no curto prazo. Se o volume de
+reintervenções crescer com mais meses de histórico, avaliar se "mais
+recente" continua sendo o critério certo, ou se a jornada deveria
+representar a janela cirúrgica completa (primeira entrada + última saída)
+em vez de um único procedimento.

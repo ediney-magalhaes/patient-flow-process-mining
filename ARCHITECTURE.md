@@ -265,7 +265,7 @@ Free Edition. Alternativa: deploy manual ou scripts via REST API.
 | `gold_sna_handover` | 1 linha por handover × período | Fluxos de encaminhamento entre setores | ✅ Sprint 3 |
 | `gold_sna_subcontracting` | 1 linha por padrão A→B→A × período | Delegações temporárias entre setores | ✅ Sprint 3 |
 | `gold_performance_spectrum` | 1 linha por transição × mês × dia | Variação temporal do desempenho do processo | ✅ Sprint 3 |
-| `gold_patient_journey` | 1 linha por episódio completo | Jornada cross-source do paciente — 6 tipos de jornada | ✅ Sprint 4 |
+| `gold_patient_journey` | 1 linha por episódio completo | Jornada cross-source do paciente — 6 tipos de jornada, conversão emergência→internação curada via BigQuery (ADR-0012, ADR-0013) | ✅ Sprint 4 |
 
 📖 **Dicionário completo:** [docs/03-data/data-dictionary.md](docs/03-data/data-dictionary.md)
   
@@ -353,5 +353,5 @@ hospital_santa_rosa          (catalog)
 - [C4 Model](https://c4model.com/)
 ---
  
-**Última atualização:** Julho 2026 • **Sprint atual:** 4 — Entregáveis (Fase 1 concluída) •
+**Última atualização:** Agosto 2026 • **Sprint atual:** 4 — Entregáveis (Fase 2 em andamento) •
 **Mantenedor:** [Ediney Magalhães](https://github.com/ediney-magalhaes)

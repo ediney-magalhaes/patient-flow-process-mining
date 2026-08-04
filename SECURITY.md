@@ -80,6 +80,7 @@ Este projeto opera sob as seguintes bases legais da
 | **Dados de saúde** (diagnóstico, especialidade) | 🔴 Sensível (Art. 5º, II) | Pseudonimizados + classificados no Unity Catalog |
 | **Timestamps de eventos** | 🟡 Média | Mantidos (essenciais para análise de fluxo) |
 | **Atributos de caso** (idade, convênio) | 🟢 Baixa | Generalizados quando necessário (ex: faixa etária) |
+| **Flags de conversão curadas** (fonte externa BigQuery) | 🟡 Média | Vinculadas por identificador já hasheado antes da persistência no Databricks |
  
 ### Direitos dos Titulares
  
@@ -142,6 +143,11 @@ repositório.
 - Anonimização **antes** do upload — dado sensível nunca sai do ambiente local
 - Salt em variável de ambiente, nunca em código
 - Script versionado, testado e auditável
+- Enriquecimento com dados curados externos (BigQuery, projeto
+  `pipeline-analytics-emergencia`) ocorre **antes** do hash, também no
+  ambiente local — credencial de service account (Application Default
+  Credentials) armazenada localmente, nunca commitada (ver ADR-0012)
+
 ### Camada 2 — Trânsito
  
 - HTTPS/TLS (padrão Databricks)

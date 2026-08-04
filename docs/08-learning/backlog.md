@@ -21,6 +21,14 @@ histórico de conversas.
   ordem join→hash importa para preservar a chave de vínculo, e como
   Application Default Credentials evita hardcode de caminho de credencial
   entre projetos/máquinas diferentes — 2026-07-30
+- [ ] Cast silencioso do Spark em coluna incompatível (`.cast("int")` sobre
+  string não-numérica retorna `null`, sem lançar exceção) — risco
+  específico em colunas anonimizadas via hash, que mudam de tipo
+  semântico sem mudar de tipo de dado — 2026-08-04
+- [ ] Técnica de auditoria de fan-out por contagem: comparar
+  `COUNT(*)` vs `COUNT(DISTINCT chave)` no resultado final de um join
+  para detectar duplicação de linha antes de investigar a causa —
+  2026-08-04
 
 ## Nota sobre lacuna histórica
 

@@ -3,6 +3,8 @@
 - **Status:** aceito
 - **Data:** 2026-07-30
 - **Decisores:** Ediney Magalhães
+- **Superado parcialmente por:** ADR-0013 (2026-08-04) — escopo de colunas
+  consumidas e lógica de linking revisados
 
 ---
 

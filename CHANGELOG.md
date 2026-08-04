@@ -38,6 +38,10 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - Dashboard AI/BI "Mapa Digital do Fluxo do Paciente" criado com datasets
   `gold_patient_journey` e `gold_bi_jornada` conectados; página "KPIs de Jornada"
   iniciada com filtro global `ano_mes` e primeiro contador validado (06/07/2026)
+  - Integração com dados curados do BigQuery (`pipeline-analytics-emergencia.marts.atendimentos_pa`)
+  via `enrichment.py`: colunas `fl_conversao`, `fl_evasao` e `atend_internacao` incorporadas
+  a `silver_atendimento_emergencia` como fonte de verdade para conversão emergência→internação,
+  substituindo o join algorítmico por aproximação temporal (`CD_PACIENTE` + janela de 1 dia)
 
 #### Corrigido
 
@@ -50,6 +54,17 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   adicionada via `F.date_format(F.col("timestamp"), "yyyy-MM")` em cada função
   do `gold_transformation.py`. Pipeline reprocessado com Full Refresh em
   06/07/2026
+  - `gold_patient_journey`: coluna `has_internacao` removida — critério de classificação de
+  `journey_type` migrado do join algorítmico (`CD_INTERNACAO IS NOT NULL`) para `fl_conversao`
+  curado, mais confiável para casos de coincidência temporal sem relação clínica real
+- `gold_patient_journey`: fan-out corrigido em `df_cirug_internacao` e `df_cirug_ambulatorial` —
+  internações/atendimentos com múltiplos procedimentos cirúrgicos duplicavam a linha da jornada;
+  filtro por `SN_PRINCIPAL = 'SIM'` com desempate por `CD_AVISO_CIRURGIA`/data quando há mais de
+  um procedimento principal na mesma internação (RQ pendente de numeração)
+- `silver_cirurgias`: cast indevido de `CD_AVISO_CIRURGIA` para `int` removido — coluna é
+  anonimizada via hash SHA-256 (string), o cast zerava o valor silenciosamente sem lançar erro
+- Dataset `kpis_jornada` do Dashboard: métrica de conversão migrada de `pct_internacao`
+  (`has_internacao`) para `tx_conversao` (`fl_conversao`)
 
 #### Sprint 3 — Process Mining (concluído)
 
