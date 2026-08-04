@@ -88,6 +88,8 @@ def silver_atendimento_emergencia():
         .withColumn("COD_TRIAGEM", col("COD_TRIAGEM").cast("int"))
         .withColumn("REGISTRO_ANS", col("REGISTRO_ANS").cast("int"))
         .withColumn("IDADE_CALCULADA", col("IDADE_CALCULADA").cast("int"))
+        .withColumn("fl_conversao", col("fl_conversao").cast("int"))
+        .withColumn("fl_evasao", col("fl_evasao").cast("int"))
     )
 
     # padroniza classificacao de risco: AMARELO1 -> AMARELO
@@ -173,7 +175,6 @@ def silver_cirurgias():
     df = (
         df
         .withColumn("IDADE", col("IDADE").cast("int"))
-        .withColumn("CD_AVISO_CIRURGIA", col("CD_AVISO_CIRURGIA").cast("int"))
         .withColumn("CODIGO_CIRURGIA", col("CODIGO_CIRURGIA").cast("int"))
         .withColumn("COD_FATURAMENTO", col("COD_FATURAMENTO").cast("int"))
     )
