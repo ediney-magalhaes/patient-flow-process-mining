@@ -19,6 +19,7 @@ ANONYMIZATION_CONFIGS: list[ColumnConfig] = [
             "USUARIO_CLASSIF",
             "USUARIO_CAD_RECEPCAO",
             "USUARIO_ALTA",
+            "atend_internacao",
         ],
         drop_columns=[
             "NM_PACIENTE",

@@ -20,6 +20,7 @@ def buscar_conversao_curada(competencias: list[str]) -> pd.DataFrame:
     query = """
         SELECT DISTINCT
             atend_PA,
+            atend_internacao,
             fl_conversao,
             fl_evasao
         FROM `pipeline-analytics-emergencia.marts.atendimentos_pa`
