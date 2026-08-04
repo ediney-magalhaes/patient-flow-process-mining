@@ -174,7 +174,6 @@ def silver_cirurgias():
         df
         .withColumn("IDADE", col("IDADE").cast("int"))
         .withColumn("CD_AVISO_CIRURGIA", col("CD_AVISO_CIRURGIA").cast("int"))
-        .withColumn("CD_CIRURGIA_AVISO", col("CD_CIRURGIA_AVISO").cast("int"))
         .withColumn("CODIGO_CIRURGIA", col("CODIGO_CIRURGIA").cast("int"))
         .withColumn("COD_FATURAMENTO", col("COD_FATURAMENTO").cast("int"))
     )
