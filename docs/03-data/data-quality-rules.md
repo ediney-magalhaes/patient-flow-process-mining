@@ -316,3 +316,47 @@ reintervenções crescer com mais meses de histórico, avaliar se "mais
 recente" continua sendo o critério certo, ou se a jornada deveria
 representar a janela cirúrgica completa (primeira entrada + última saída)
 em vez de um único procedimento.
+
+
+## RQ-009 — Fonte de `ano_mes` sujeita a lacuna de totem em `emergencia_pura`
+
+- **Tabela de origem:** `silver_atendimento_emergencia`
+- **Campo afetado:** `DT_HR_TOTEM_RECEP` (origem de `ts_chegada` em `gold_patient_journey`)
+- **Data do achado:** 2026-08-13
+- **Contexto:** Sprint 4 — Fase 2 (validação do dataset `kpis_jornada_emergencia` após expansão do Bloco B)
+
+### Achado
+
+397 registros de `journey_type = 'emergencia_pura'` (ano_mes = 2026-03)
+apresentaram `ano_mes` nulo em `gold_patient_journey`. Investigação
+confirmou que `ts_chegada` (origem: `DT_HR_TOTEM_RECEP`) estava nulo
+nesses 397 registros — todos concentrados em `emergencia_pura`, sem
+internação vinculada, portanto sem `ts_entrada_internacao` para servir de
+fallback no `COALESCE` original.
+
+### Causa raiz
+
+A ingestão de março/2026 usada neste projeto não passou pelo mesmo
+tratamento de lacunas de totem já aplicado no projeto paralelo de
+conversão (`pipeline-analytics-emergencia`), onde esse campo já chega
+completo. Não é falha do pipeline Bronze→Silver→Gold — é uma diferença
+entre a fonte de ingestão usada aqui e a fonte curada já tratada no outro
+projeto.
+
+### Decisão
+
+`ano_mes` em `gold_patient_journey` passa a usar `DT_ATENDIMENTO` como
+fonte primária no lugar de `ts_chegada` — `DT_ATENDIMENTO` é mais robusta
+por não depender do equipamento de totem, e é suficiente porque `ano_mes`
+só precisa do grão de mês, não da hora exata. `ts_chegada` continua sendo
+a fonte usada em `duracao_total_min`, onde a hora exata é necessária.
+
+Nenhum `COALESCE` adicional foi introduzido como rede de segurança — se a
+fonte de ingestão futura vier incompleta novamente, `ano_mes` permanece
+nulo, sinalizando o problema de forma visível em vez de mascará-lo.
+
+### Ação futura recomendada
+
+Nas próximas ingestões mensais, usar o mesmo arquivo/fonte já curada pelo
+projeto `pipeline-analytics-emergencia` para os campos de totem, em vez da
+extração direta usada em março/2026.
