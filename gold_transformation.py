@@ -539,7 +539,7 @@ def gold_patient_journey():
     df_emerg_convertida = df_emerg.filter(F.col("fl_conversao") == 1)
     df_intern_direta = df_intern.join(
         df_emerg_convertida,
-        on=(df_intern["CD_ATENDIMENTO"] == df_emerg_convertida["atend_internacao"]),
+        on=(df_intern["CD_INTERNACAO"] == df_emerg_convertida["atend_internacao"]),
         how="left_anti"
     )
     # alinhamento de schema
@@ -548,8 +548,8 @@ def gold_patient_journey():
         .withColumn("DT_ATENDIMENTO", F.lit(None).cast("timestamp")) \
         .withColumn("ts_chegada", F.lit(None).cast("timestamp")) \
         .withColumn("ts_alta_emergencia", F.lit(None).cast("timestamp")) \
-        .withColumn("fl_conversao", F.lit(None).cast(0)) \
-        .withColumn("fl_evasao", F.lit(None).cast(0)) \
+        .withColumn("fl_conversao", F.lit(0)) \
+        .withColumn("fl_evasao", F.lit(0)) \
         .withColumn("atend_internacao", F.lit(None).cast("string"))
 
     
