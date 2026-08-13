@@ -535,6 +535,24 @@ def gold_patient_journey():
         F.col("ORIGEM_ATEND")
     )
 
+    # filtra apenas consultas da emergência convertida, usando left_anti para isolar internações sem origem na emergência
+    df_emerg_convertida = df_emerg.filter(F.col("fl_conversao") == 1)
+    df_intern_direta = df_intern.join(
+        df_emerg_convertida,
+        on=(df_intern["CD_ATENDIMENTO"] == df_emerg_convertida["atend_internacao"]),
+        how="left_anti"
+    )
+    # alinhamento de schema
+    df_intern_direta = df_intern_direta \
+        .withColumn("CD_ATENDIMENTO", F.lit(None).cast("string")) \
+        .withColumn("DT_ATENDIMENTO", F.lit(None).cast("timestamp")) \
+        .withColumn("ts_chegada", F.lit(None).cast("timestamp")) \
+        .withColumn("ts_alta_emergencia", F.lit(None).cast("timestamp")) \
+        .withColumn("fl_conversao", F.lit(None).cast(0)) \
+        .withColumn("fl_evasao", F.lit(None).cast(0)) \
+        .withColumn("atend_internacao", F.lit(None).cast("string"))
+
+    
     # seleção das colunas necessárias na tabela de cirurgias
     df_cirug = df_cirug.select(
         F.col("ATENDIMENTO").alias("CD_INTERNACAO"),
@@ -612,6 +630,9 @@ def gold_patient_journey():
         on=(df_emerg["atend_internacao"] == df_intern["CD_INTERNACAO"]),
         how="left"
     ).drop(df_intern["CD_PACIENTE"])
+
+    # união dos blocos de internação direta com conversões (jornada completa da internação pelas duas vias de entrada: emergência e eletiva)
+    df_emerg_intern = df_emerg_intern.unionByName(df_intern_direta)
 
     # prefixos de leito UTI
     uti_prefixos = ["UTIA1", "UTIA2", "UTIB", "UCO", "UNP"]
@@ -706,7 +727,7 @@ def gold_patient_journey():
     df_journey = df_journey \
         .withColumn("has_uti", F.col("qtd_passagens_uti").isNotNull() & (F.col("qtd_passagens_uti") > 0)) \
         .withColumn("has_cirurgia", F.col("ts_entrada_cirurgia").isNotNull()) \
-        .withColumn("ano_mes", F.date_format(F.coalesce(F.col("ts_chegada"), F.col("ts_entrada_internacao")), "yyyy-MM")) \
+        .withColumn("ano_mes", F.date_format(F.coalesce(F.col("DT_ATENDIMENTO"), F.col("ts_entrada_internacao")), "yyyy-MM")) \
         .withColumn("duracao_emergencia_internacao_min", (F.unix_timestamp("ts_entrada_internacao") - F.unix_timestamp("ts_chegada")) / 60) \
         .withColumn("duracao_internacao_cirurgia_min", (F.unix_timestamp("ts_entrada_cirurgia") - F.unix_timestamp("ts_entrada_internacao")) / 60) \
         .withColumn("duracao_cirurgia_leito_min", (F.unix_timestamp("ts_primeiro_leito") - F.unix_timestamp("ts_saida_cirurgia")) / 60) \
@@ -717,20 +738,20 @@ def gold_patient_journey():
         "journey_type",
         F.when(
             F.col("CD_ATENDIMENTO").isNotNull() & (F.col("fl_conversao") == 0) & F.col("ts_entrada_cirurgia").isNull(),
-            F.lit("emergencia_pura")
+            F.lit("atendimento_emergencia")
         ).when(
             F.col("CD_ATENDIMENTO").isNotNull() & (F.col("fl_conversao") == 0) & F.col("ts_entrada_cirurgia").isNotNull(),
-            F.lit("emergencia_cirurgia_ambulatorial")
+            F.lit("cirurgia_ambulatorial")
         ).when(
             F.col("CD_ATENDIMENTO").isNotNull() & (F.col("fl_conversao") == 1) & F.col("ts_entrada_cirurgia").isNull(),
-            F.lit("emergencia_internacao_clinica")
+            F.lit("internacao_clinica")
         ).when(
             F.col("CD_ATENDIMENTO").isNotNull() & (F.col("fl_conversao") == 1) & F.col("ts_entrada_cirurgia").isNotNull(),
-            F.lit("emergencia_internacao_cirurgica")
+            F.lit("internacao_cirurgica_emergencia")
         ).when(
-            F.col("CD_ATENDIMENTO").isNull() & (F.col("fl_conversao") == 1) & F.col("ts_entrada_cirurgia").isNull(),
-            F.lit("internacao_direta_clinica")
-        ).otherwise(F.lit("internacao_direta_cirurgica"))
+            F.col("CD_ATENDIMENTO").isNull() & F.col("ts_entrada_cirurgia").isNotNull(),
+            F.lit("internacao_cirurgica_eletiva")
+        ).otherwise(F.lit("investigação (temporária)"))
     )
 
     return df_journey.select(
