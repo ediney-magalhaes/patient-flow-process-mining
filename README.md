@@ -94,7 +94,7 @@ e refinamento.
 | **Transformação** | Lakeflow Declarative Pipelines | ✅ Sprint 1 + Sprint 2 |
 | **Process Mining** | PM4Py | ✅ Sprint 3 |
 | **Governança** | Unity Catalog | ✅ Sprint 0 |
-| **BI** | AI/BI Dashboards | 🔲 Sprint 4 |
+| **BI** | AI/BI Dashboards | 🔄 Sprint 4 (Página 1 concluída) |
 | **App** | Streamlit | 🔲 Sprint 4 |
 | **CI/CD** | GitHub Actions | 🔲 Sprint 5 |
 | **Documentação** | MkDocs Material + GitHub Pages | 🔲 Sprint 5 |
@@ -108,7 +108,7 @@ e refinamento.
 - [x] **Sprint 1** — Bronze + Silver: ingestão e limpeza dos dados (8 tabelas Bronze + 8 tabelas Silver concluídas)
 - [x] **Sprint 2** — Gold: event log canônico no padrão XES (9 tabelas Gold, 190K eventos)
 - [x] **Sprint 3** — Process Mining: descoberta de processos, variantes, gargalos, conformidade, SNA e performance spectrum (5 tabelas Gold, XES exportado)
-- [ ] **Sprint 4** — Entregáveis: dashboard executivo (AI/BI + Genie Space), app interativo (Databricks App) — Fase 1 concluída (`gold_patient_journey`)
+- [ ] **Sprint 4** — Entregáveis: dashboard executivo (AI/BI + Genie Space), app interativo (Databricks App) — Fase 1 concluída (`gold_patient_journey`), Fase 2 em andamento (Página 1 do Dashboard concluída e publicada)
 - [ ] **Sprint 5** — CI/CD, documentação completa, apresentação executiva
 ## Dados e Privacidade (LGPD)
  
