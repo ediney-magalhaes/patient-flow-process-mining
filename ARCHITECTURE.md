@@ -230,27 +230,28 @@ Free Edition. Alternativa: deploy manual ou scripts via REST API.
 - Metadata de ingestão (`_ingestion_timestamp`, `_source_file`)
 - Column Mapping habilitado para tabelas com caracteres especiais nos nomes de colunas
 - Ingestão via Auto Loader com checkpoint por tabela
- 
-**Características planejadas:**
- 
-- Schema flexível (schema evolution habilitado)
-- Append-only — dados brutos nunca são alterados
-- Metadata de ingestão (`_ingestion_timestamp`, `_source_file`)
 
 ### 4.2 Camada Silver
 
-| Tabela | Granularidade | Registros | Propósito | Status |
+| Tabela | Granularidade | Registros (mar/2026) | Propósito | Status |
 |---|---|---|---|---|
 | `silver_altas` | 1 linha por alta (deduplicada) | 895 | Altas tipadas e limpas | ✅ Implementada |
-| `silver_event_log` | 1 linha por evento | - | Event log padronizado | 🔲 Planejada |
-| `silver_dim_paciente` | 1 linha por paciente (anonimizado) | - | Dimensão paciente | 🔲 Planejada |
-| `silver_dim_atividade` | 1 linha por atividade | - | Vocabulário controlado | 🔲 Planejada |
+| `silver_atendimento_emergencia` | 1 linha por atendimento (deduplicada) | 6.236 | Emergência tipada, deduplicada, enriquecida com `fl_conversao`/`fl_evasao`/`atend_internacao` curados via BigQuery | ✅ Implementada |
+| `silver_cirurgias` | 1 linha por procedimento cirúrgico | 1.600 | Cirurgias tipadas, sem deduplicação (múltiplos procedimentos por atendimento) | ✅ Implementada |
+| `silver_epidemio` | 1 linha por internação | 821 | Base de enriquecimento clínico (CIDs, UTI, complexidade) | ✅ Implementada |
+| `silver_exames_imagem` | 1 linha por exame por atendimento (deduplicada) | 5.308 | Exames de imagem tipados e deduplicados | ✅ Implementada |
+| `silver_exames_laboratoriais` | 1 linha por exame por atendimento (deduplicada) | ~20.000 | Exames laboratoriais tipados e deduplicados | ✅ Implementada |
+| `silver_internacoes` | 1 linha por internação (deduplicada) | 867 | Internações tipadas e deduplicadas | ✅ Implementada |
+| `silver_movimentacoes` | 1 linha por movimentação de leito | ~3.600 | Event log de movimentações de leito | ✅ Implementada |
+
+**Características implementadas:**
+
+- Deduplicação por chave natural (`ROW_NUMBER`, critério de desempate por tabela)
+- Flags de consistência temporal por tabela (ex: `flag_totem_classif`, `flag_atendimento_alta`)
+- Padronização de timestamps (combinação de data + hora em coluna única)
+- Correção de encoding em colunas de texto
+- Enriquecimento externo via BigQuery em `silver_atendimento_emergencia` (ADR-0012, ADR-0013)
  
-**Características planejadas:**
- 
-- Validações de qualidade (expectations ou testes manuais)
-- Padronização de timestamps
-- Vocabulário controlado de atividades (recepção, triagem, consulta, etc.)
 ### 4.3 Camada Gold
 
 | Tabela | Granularidade | Propósito | Status |
@@ -265,7 +266,7 @@ Free Edition. Alternativa: deploy manual ou scripts via REST API.
 | `gold_sna_handover` | 1 linha por handover × período | Fluxos de encaminhamento entre setores | ✅ Sprint 3 |
 | `gold_sna_subcontracting` | 1 linha por padrão A→B→A × período | Delegações temporárias entre setores | ✅ Sprint 3 |
 | `gold_performance_spectrum` | 1 linha por transição × mês × dia | Variação temporal do desempenho do processo | ✅ Sprint 3 |
-| `gold_patient_journey` | 1 linha por episódio completo | Jornada cross-source do paciente — 6 tipos de jornada, conversão emergência→internação curada via BigQuery (ADR-0012, ADR-0013) | ✅ Sprint 4 |
+| `gold_patient_journey` | 1 linha por episódio completo | Jornada cross-source do paciente — 6 tipos de jornada com vocabulário de negócio (ADR-0014), conversão emergência→internação curada via BigQuery (ADR-0012, ADR-0013) | ✅ Sprint 4 |
 
 📖 **Dicionário completo:** [docs/03-data/data-dictionary.md](docs/03-data/data-dictionary.md)
   
@@ -321,14 +322,16 @@ hospital_santa_rosa          (catalog)
  
 ---
  
-## 7. Observabilidade (Planejada)
- 
-| Aspecto | Abordagem Planejada | Status |
+## 7. Observabilidade
+
+| Aspecto | Abordagem | Status |
 |---|---|---|
-| **Data Quality** | Expectations ou validações manuais | 🔲 Sprint 1 |
-| **Pipeline Health** | Alertas de execução | 🔲 Sprint 1 |
-| **Custo (FinOps)** | Monitoramento de uso da quota Free Edition | 🔲 Sprint 0 |
-| **Lineage** | Unity Catalog (automático) | 🔲 Sprint 0 |
+| **Data Quality** | Expectations DLT (`@dlt.expect_or_drop`) e flags de consistência temporal por tabela Silver | ✅ Sprint 1 |
+| **Pipeline Health** | Monitoramento manual de execução via UI do Lakeflow (Run history, event log) | ✅ Sprint 1 |
+| **Custo (FinOps)** | Monitoramento de uso da quota Free Edition | 🔲 Não iniciado |
+| **Lineage** | Unity Catalog (automático) | ✅ Nativo da plataforma (Unity Catalog) |
+
+📖 **Análise FinOps detalhada:** [docs/07-operations/finops.md](docs/07-operations/finops.md) — pendente de criação
  
 ---
  
@@ -353,5 +356,5 @@ hospital_santa_rosa          (catalog)
 - [C4 Model](https://c4model.com/)
 ---
  
-**Última atualização:** Agosto 2026 • **Sprint atual:** 4 — Entregáveis (Fase 2 em andamento) •
+**Última atualização:** 13/08/2026 • **Sprint atual:** 4 — Entregáveis (Fase 2 em andamento — Página 1 do Dashboard concluída) •
 **Mantenedor:** [Ediney Magalhães](https://github.com/ediney-magalhaes)
