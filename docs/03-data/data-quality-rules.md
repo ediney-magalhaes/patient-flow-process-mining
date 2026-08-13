@@ -360,3 +360,56 @@ nulo, sinalizando o problema de forma visível em vez de mascará-lo.
 Nas próximas ingestões mensais, usar o mesmo arquivo/fonte já curada pelo
 projeto `pipeline-analytics-emergencia` para os campos de totem, em vez da
 extração direta usada em março/2026.
+
+
+## RQ-010 — Confirmação de `internacao_clinica_direta` como categoria de negócio real
+
+- **Tabela de origem:** `gold_patient_journey`
+- **Campo afetado:** `journey_type`
+- **Data do achado:** 2026-08-13
+- **Contexto:** Sprint 4 — Fase 2 (validação do Bloco B em `gold_patient_journey`
+  após implementação do ADR-0014)
+
+### Achado
+
+Na primeira execução com Full Refresh após a implementação do Bloco B, 58 dos
+422 registros (~14%) caíram na branch de investigação temporária da
+classificação de `journey_type` — o caso que o ADR-0014 original havia
+caracterizado, por hipótese, como clinicamente inexistente: internação sem
+consulta prévia na emergência e sem cirurgia vinculada.
+
+### Investigação
+
+Duas rodadas de cruzamento contra `silver_atendimento_emergencia`, por
+`cd_paciente`, descartaram explicações de erro de pipeline:
+
+1. Join com janela de 1 dia antes da internação, restrito a registros com
+   `origem_atendimento` indicando vínculo com emergência: nenhuma
+   correspondência encontrada para os casos testados.
+2. Join sem filtro de data nem de `origem_atendimento` (removido da
+   investigação por não ser campo confiável para decisão, conforme já
+   estabelecido no ADR-0014): 53 dos 58 casos não têm nenhum registro de
+   emergência associado ao paciente em nenhum momento; os outros 5 têm
+   emergências, mas todas posteriores à data de entrada da internação em
+   questão — episódios não relacionados, prováveis reinternações do mesmo
+   paciente ao longo do mês.
+
+Nenhum indício de gap de curadoria, erro de vínculo ou falha de janela
+temporal. O padrão é consistente com um tipo de entrada hospitalar real, não
+mapeado antes da investigação.
+
+### Decisão
+
+Confirmado como categoria de negócio legítima: **internação clínica sem
+consulta na emergência**. Nomeada `internacao_clinica_direta` pelo usuário,
+substituindo o rótulo temporário de investigação em `gold_transformation.py`.
+Passa a ser a sexta categoria oficial de `journey_type`, documentada no
+ADR-0014 (emenda de 2026-08-13) e em `data-dictionary.md`.
+
+### Ação futura recomendada
+
+Nenhuma correção de pipeline necessária — o `otherwise` da classificação já
+capturava esses casos corretamente, faltava apenas o nome de negócio. Ao
+processar novos meses, monitorar se o volume proporcional de
+`internacao_clinica_direta` se mantém próximo dos ~14% do Bloco B observados
+em março/2026, ou se essa proporção era específica desse mês.
