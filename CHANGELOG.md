@@ -22,9 +22,9 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 #### Adicionado
 
 - `gold_patient_journey` — tabela Gold cross-source com jornada completa do paciente,
-  cobrindo seis tipos de jornada: `emergencia_pura`, `emergencia_cirurgia_ambulatorial`,
-  `emergencia_internacao_clinica`, `emergencia_internacao_cirurgica`,
-  `internacao_direta_clinica`, `internacao_direta_cirurgica`
+  cobrindo seis tipos de jornada com vocabulário de negócio (ADR-0014):
+  `atendimento_emergencia`, `internacao_clinica`, `internacao_cirurgica_emergencia`,
+  `internacao_cirurgica_eletiva`, `internacao_clinica_direta`, `cirurgia_ambulatorial`
 - Cobertura de cirurgias ambulatoriais de emergência via anti join com `silver_internacoes`
   e join por `CD_PACIENTE` + janela temporal de 1 dia usando `DATA_INICIO_CIRURGIA`
 - Métricas de UTI agregadas por episódio: `ts_primeira_entrada_uti`, `ts_ultima_saida_uti`,
@@ -42,6 +42,25 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   via `enrichment.py`: colunas `fl_conversao`, `fl_evasao` e `atend_internacao` incorporadas
   a `silver_atendimento_emergencia` como fonte de verdade para conversão emergência→internação,
   substituindo o join algorítmico por aproximação temporal (`CD_PACIENTE` + janela de 1 dia)
+- `gold_patient_journey` expandida com Bloco B (internações sem origem em
+  emergência) via `left_anti` contra emergências convertidas, unificada ao
+  Bloco A por `unionByName` antes da cadeia de enriquecimento (UTI, cirurgia,
+  altas, primeiro leito) — reaproveitada sem duplicação de lógica
+- ADR-0014: expansão do Bloco B e nomenclatura de negócio de `journey_type`,
+  emendado com a sexta categoria (`internacao_clinica_direta`), confirmada
+  por investigação de dado real (RQ-010) após refutar a hipótese original de
+  inexistência clínica
+- RQ-009: fonte de `ano_mes` em `gold_patient_journey` migrada de `ts_chegada`
+  para `DT_ATENDIMENTO` — lacuna de totem na ingestão de mar/2026 (não
+  presente na fonte já curada usada pelo projeto de conversão)
+- RQ-010: investigação e confirmação de `internacao_clinica_direta` como
+  padrão operacional real (internação sem consulta prévia na emergência e
+  sem cirurgia), ~14% do Bloco B em mar/2026
+- Dashboard "Mapa Digital do Fluxo do Paciente", página "KPIs de Jornada"
+  (Página 1) concluída e publicada — duas seções (Jornada Emergência,
+  Jornada Internação), 11 cards, 4 gráficos, 4 datasets SQL e ~15 campos
+  calculados no Data Model; documentado em
+  `docs/06-deliverables/dashboard-kpis-jornada.md`
 
 #### Corrigido
 
@@ -65,6 +84,17 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   anonimizada via hash SHA-256 (string), o cast zerava o valor silenciosamente sem lançar erro
 - Dataset `kpis_jornada` do Dashboard: métrica de conversão migrada de `pct_internacao`
   (`has_internacao`) para `tx_conversao` (`fl_conversao`)
+- `gold_patient_journey`: chave de join do Bloco B corrigida de
+  `CD_ATENDIMENTO` (inexistente em `df_intern`) para `CD_INTERNACAO`
+- `gold_patient_journey`: `fl_conversao`/`fl_evasao` do Bloco B corrigidos de
+  `F.lit(None).cast(0)` (sintaxe inválida) para `F.lit(0)`, conforme decisão
+  de modelagem (internação direta tratada como "não convertida", não como
+  "não aplicável")
+- Data Model do Dashboard (`gold_bi_jornada` e `gold_patient_journey`):
+  campo `has_internacao`, removido da tabela desde a Fase 1, ainda estava
+  mapeado como Field no Data Model, quebrando o preview dos dois datasets
+  com `UNRESOLVED_COLUMN` — campo removido, sem impacto em widgets (nenhum
+  os referenciava ainda)
 
 #### Sprint 3 — Process Mining (concluído)
 
@@ -252,42 +282,27 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 
 #### Fase 2 — Dashboard AI/BI
 
-**Passo 1 — View `gold_bi_jornada`** (pré-condição para Passos 2 e 3)
-- Criar no Unity Catalog (`gold_fluxo`) uma view que resolve o join entre
-  `gold_patient_journey` e `gold_events_atendimento`, encapsulando a lógica
-  de família de identificador (CD_ATENDIMENTO) e expondo colunas com
-  vocabulário de negócio
+**Passo 1 — View `gold_bi_jornada`** (pré-condição para Passos 2 e 3) — ~~concluído~~
+- ~~Criar no Unity Catalog (`gold_fluxo`) uma view que resolve o join entre `gold_patient_journey` e `gold_events_emergencia`, encapsulando a lógica de família de identificador (CD_ATENDIMENTO) e expondo colunas com vocabulário de negócio~~
 - Essa view é a única camada de abstração para BI — não serão criadas
   tabelas/views adicionais neste sprint
 
-**Passo 2 — Dashboard único (AI/BI Dashboard)**
-- Um único dashboard com quatro blocos organizados em seções visuais
-  scrolláveis (sem navegação por abas — comportamento nativo da ferramenta)
-- Filtro global de `ano_mes` e `tipo_jornada` aplicando sobre todos os blocos
-- Seção 1 — KPIs de jornada agregada → fonte: `gold_patient_journey`
-- Seção 2 — Análise de gargalos → fonte: `gold_patient_journey` +
-  `gold_bi_jornada`
-- Seção 3 — Conformance checking → fonte: `gold_patient_journey`
-- Seção 4 — Handover / SNA → fonte: `gold_events_atendimento`
-- Todos os visuais projetados com eixo temporal pronto para receber meses
-  subsequentes — mesmo que no momento da entrega só exista março/2026
+**Passo 2 — Dashboard (AI/BI Dashboard)**
+- **Decisão revisada (13/08/2026):** dashboard estruturado em abas por página (uma aba por seção), não em scroll único como planejado originalmente — decisão tomada durante a construção da Página 1, mantida para as páginas seguintes por consistência
+- Filtro `ano_mes` (Período) implementado na Página 1. Filtro de `tipo_jornada` **não implementado** — não fez parte do desenho final da Página 1; avaliar necessidade ao construir as páginas seguintes
+- Página 1 — KPIs de jornada agregada → fonte: `gold_patient_journey` — ~~concluída e publicada~~ (ver `docs/06-deliverables/dashboard-kpis-jornada.md`)
+- Página 2 — Análise de gargalos → fonte: `gold_patient_journey` + `gold_bi_jornada`
+- Página 3 — Conformance checking → fonte: `gold_patient_journey`
+- Página 4 — Handover / SNA → fonte: `gold_events_emergencia`
+- Todos os visuais projetados com eixo temporal pronto para receber meses subsequentes — mesmo que no momento da entrega só exista março/2026
 
 **Passo 3 — Genie Space**
-- Escopo restrito: `gold_patient_journey` + `gold_bi_jornada` +
-  `gold_events_atendimento`
-  - `gold_patient_journey`: perguntas sobre jornada completa e métricas
-    consolidadas
-  - `gold_events_atendimento`: perguntas com granularidade de evento dentro
-    da emergência (ex: tempo entre triagem e consulta)
-  - Demais `gold_events_*` fora do escopo neste sprint — revisão após
-    validação com stakeholders
-- Configuração semântica: descrições de tabela/coluna (adaptadas do
-  `data-dictionary.md`), instruções gerais para regras de negócio críticas
-  (famílias de identificador, prefixos de UTI), ~10 consultas certificadas
-  para perguntas de alta frequência
-- Decisão sobre uso de metric views (camada semântica estruturada do Unity
-  Catalog) a ser tomada durante a execução deste passo, após exploração
-  da ferramenta
+- Escopo restrito: `gold_patient_journey` + `gold_bi_jornada` + `gold_events_emergencia`
+  - `gold_patient_journey`: perguntas sobre jornada completa e métricas consolidadas
+  - `gold_events_emergencia`: perguntas com granularidade de evento dentro da emergência (ex: tempo entre triagem e consulta)
+  - Demais `gold_events_*` fora do escopo neste sprint — revisão após validação com stakeholders
+- Configuração semântica: descrições de tabela/coluna (adaptadas do `data-dictionary.md`), instruções gerais para regras de negócio críticas (famílias de identificador, prefixos de UTI), ~10 consultas certificadas para perguntas de alta frequência
+- Decisão sobre uso de metric views (camada semântica estruturada do Unity Catalog) a ser tomada durante a execução deste passo, após exploração da ferramenta
 
 **Passo 4 — Permissões e publicação**
 - Configurar acesso no Unity Catalog para os perfis de consumo (gestores
