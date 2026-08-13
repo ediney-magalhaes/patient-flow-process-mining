@@ -751,7 +751,7 @@ def gold_patient_journey():
         ).when(
             F.col("CD_ATENDIMENTO").isNull() & F.col("ts_entrada_cirurgia").isNotNull(),
             F.lit("internacao_cirurgica_eletiva")
-        ).otherwise(F.lit("investigação (temporária)"))
+        ).otherwise(F.lit("internacao_clinica_direta"))
     )
 
     return df_journey.select(
