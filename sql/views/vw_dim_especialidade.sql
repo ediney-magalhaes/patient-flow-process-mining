@@ -1,0 +1,9 @@
+CREATE OR REPLACE VIEW hospital_santa_rosa.gold_fluxo.vw_dim_especialidade AS
+SELECT * FROM VALUES
+  ('MEDICO CARDIOLOGISTA',  'CARDIOLOGIA'),
+  ('MEDICO INFECTOLOGISTA', 'INFECTOLOGIA'),
+  ('MEDICO PEDIATRA',       'PEDIATRIA'),
+  ('MEDICO NEFROLOGISTA',   'NEFROLOGIA'),
+  ('MEDICO NEUROLOGISTA',   'NEUROLOGIA'),
+  ('MEDICO PNEUMOLOGISTA',  'PNEUMOLOGIA')
+AS t(especialidade_origem, especialidade_label);
