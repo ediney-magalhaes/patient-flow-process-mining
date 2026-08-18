@@ -399,66 +399,89 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 ### gold_variant_analysis
 
 - **Schema:** `hospital_santa_rosa.gold_fluxo`
-- **Granularidade:** 1 linha por variante distinta de processo
+- **Granularidade:** 1 linha por variante distinta de processo × mês (`ano_mes`)
 - **Origem:** `gold_event_log`, processado via PM4Py no notebook `03_process_mining.ipynb`
-- **Volume referência:** 2.016 variantes (mar/2026, 7.643 traces totais)
+- **Volume referência:** 2.016 linhas (mar/2026, 7.643 traces totais)
 - **Atualização:** manual — recalculada e sobrescrita quando o notebook de Process
   Mining é executado, não faz parte do pipeline `gold_transformations`
+- **Correção (18/08/2026):** `ano_mes` passou a ser derivado de `data_referencia`
+  (coluna do `gold_event_log`, ver ADR retroativo), em vez de `data_referencia`
+  de execução do notebook. Ranking (`rank`) passou de global para calculado
+  dentro de cada `ano_mes` — permite comparar top variantes mês a mês em vez
+  de um ranking único acumulado.
 - **Colunas:**
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
-| `rank` | int | Posição da variante no ranking de frequência (1 = mais frequente) |
+| `rank` | bigint | Posição da variante no ranking de frequência **dentro do seu `ano_mes`** (1 = mais frequente naquele mês) |
 | `sequencia` | string | Sequência de atividades da variante, separadas por `→` |
-| `total_eventos` | int | Número de atividades distintas na sequência |
-| `total_casos` | int | Número de casos (traces) que seguem exatamente essa variante |
-| `cobertura_perc` | double | Percentual de casos cobertos por essa variante em relação ao total |
-| `data_referencia` | date | Data de processamento |
+| `total_eventos` | bigint | Número de atividades distintas na sequência |
+| `ano_mes` | string | Mês de referência da variante, derivado de `data_referencia` (evento clínico real, não administrativo) |
+| `total_casos` | bigint | Número de casos (traces) que seguem exatamente essa variante, naquele mês |
+| `cobertura_perc` | double | Percentual de casos cobertos por essa variante em relação ao total de casos daquele `ano_mes` |
 
 ### gold_performance_spectrum
 
-- **Descrição:** Variação temporal do desempenho do processo, tempos de
-  transição entre atividades consecutivas, agregados por mês e dia da semana.
-  Base para análise de sazonalidade e tendência do fluxo hospitalar.
-- **Granularidade:** Uma linha por combinação de transição (atividade ->
-  próxima atividade) × mês × dia da semana.
-- **Origem:** `gold_event_log` (via notebook `03_process_mining.ipynb`)
-- **Frequência de atualização:** Mensal, após ingestão de novo período
 - **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Granularidade:** 1 linha por transição entre atividades × mês × dia da semana × especialidade de origem
+- **Origem:** `gold_event_log`, processado via PM4Py no notebook `03_process_mining.ipynb`
+- **Volume referência:** 7.621 linhas (mar/2026)
+- **Atualização:** manual — recalculada e sobrescrita quando o notebook de Process
+  Mining é executado, não faz parte do pipeline `gold_transformations`
+- **Correção (18/08/2026):** `ano_mes` passou a ser derivado de `data_referencia`
+  (mesma correção aplicada a `gold_bottleneck`). Coluna `especialidade`
+  adicionada — especialidade do evento de origem da transição, mesma regra
+  de negócio do `gold_bottleneck`, para consistência entre as duas tabelas
+  que alimentam a Página 2 do Dashboard.
+- **Nota de escopo:** esta tabela é agregada (mediana/P25/P75 por mês × dia
+  da semana × especialidade), não contém uma linha por atendimento individual.
+  O Performance Spectrum "clássico" (uma linha por caso, colorida por duração,
+  ver conceito discutido na construção da Página 2) exigiria granularidade de
+  caso individual, que esta tabela não fornece — reservado como pendência do
+  Databricks App, não deste Gold.
+- **Colunas:**
 
-| Coluna | Tipo | Descrição | Nullable |
-|---|---|---|---|
-| concept:name | string | Atividade de origem da transição | Não |
-| proxima_atividade | string | Atividade de destino da transição | Não |
-| ano_mes | string | Período de referência no formato YYYY-MM | Não |
-| dia_semana | string | Dia da semana em português | Não |
-| total_transicoes | long | Número de ocorrências da transição nesse período e dia | Não |
-| tempo_mediano_min | double | Tempo mediano da transição em minutos | Não |
-| tempo_p25_min | double | Percentil 25 do tempo de transição em minutos | Não |
-| tempo_p75_min | double | Percentil 75 do tempo de transição em minutos | Não |
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `concept:name` | string | Atividade de origem da transição |
+| `proxima_atividade` | string | Atividade de destino da transição |
+| `ano_mes` | string | Mês de referência, derivado de `data_referencia` |
+| `dia_semana` | string | Dia da semana da ocorrência, em português (Segunda–Domingo) |
+| `especialidade` | string | Especialidade médica do evento de origem da transição |
+| `total_transicoes` | bigint | Número de ocorrências dessa combinação |
+| `tempo_mediano_min` | double | Tempo mediano de transição, em minutos |
+| `tempo_p25_min` | double | Percentil 25 do tempo de transição, em minutos |
+| `tempo_p75_min` | double | Percentil 75 do tempo de transição, em minutos |
 
 ### gold_bottleneck
 
-- **Descrição:** Tempos de transição entre pares de atividades por setor e
-  período, com métricas de dispersão para identificação de gargalos no
-  fluxo hospitalar.
-- **Granularidade:** Uma linha por combinação source × ano_mes × atividade
-  de origem × atividade de destino.
-- **Origem:** `gold_event_log` (via notebook `03_process_mining.ipynb`)
-- **Frequência de atualização:** Mensal
 - **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Granularidade:** 1 linha por transição entre atividades × fonte × mês × especialidade de origem
+- **Origem:** `gold_event_log`, processado via PM4Py no notebook `03_process_mining.ipynb`
+- **Volume referência:** 1.662 linhas (mar/2026)
+- **Atualização:** manual — recalculada e sobrescrita quando o notebook de Process
+  Mining é executado, não faz parte do pipeline `gold_transformations`
+- **Correção (18/08/2026):** `ano_mes` passou a ser derivado de `data_referencia`
+  (constante por caso dentro da mesma fonte, elimina distorção por eventos
+  administrativos como "Aviso de Cirurgia" e por virada de meia-noite). Coluna
+  `especialidade` adicionada — especialidade do evento de **origem** da
+  transição (quem estava conduzindo o caso quando o gargalo começou, não quem
+  o recebeu depois). Motivação: viabilizar filtro de Especialidade na Página 2
+  do Dashboard (ver auditoria de completude de filtro, roadmap Sprint 4).
+- **Colunas:**
 
-| Coluna | Tipo | Descrição | Nullable |
-|---|---|---|---|
-| source | string | Setor de origem do evento | Não |
-| ano_mes | string | Período de referência no formato YYYY-MM | Não |
-| de | string | Atividade de origem da transição | Não |
-| para | string | Atividade de destino da transição | Não |
-| tempo_medio_min | double | Tempo médio da transição em minutos | Sim |
-| tempo_mediano_min | double | Tempo mediano da transição em minutos | Sim |
-| desvio_padrao_min | double | Desvio padrão do tempo de transição em minutos | Sim |
-| frequencia | long | Número de ocorrências da transição | Não |
-| cv_pct | double | Coeficiente de variação em percentual | Sim |
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `source` | string | Tabela Silver de origem da transição (ex: `silver_cirurgias`) |
+| `ano_mes` | string | Mês de referência, derivado de `data_referencia` |
+| `especialidade` | string | Especialidade médica do evento de origem ("de") da transição |
+| `de` | string | Atividade de origem da transição |
+| `para` | string | Atividade de destino da transição |
+| `tempo_medio_min` | double | Tempo médio entre as duas atividades, em minutos |
+| `tempo_mediano_min` | double | Tempo mediano entre as duas atividades, em minutos |
+| `desvio_padrao_min` | double | Desvio padrão do tempo, em minutos |
+| `frequencia` | bigint | Número de ocorrências dessa transição, na fonte/mês/especialidade |
+| `cv_pct` | double | Coeficiente de variação (%) — desvio padrão / tempo médio |
 
 ### gold_conformance
 
