@@ -9,6 +9,19 @@
 #
 # Pipeline: gold_transformations
 # Schema:   hospital_santa_rosa.gold_fluxo
+#
+# ATUALIZAÇÃO (18/08/2026): adicionada a coluna `data_referencia` em todas as
+# 7 fontes gold_events_* — data pura (sem hora) representando quando o evento
+# aconteceu de fato, na origem correta por fonte (mesma lógica do RQ-009:
+# DT_ATENDIMENTO em vez de ts_chegada). Motivação: cálculos de `ano_mes` feitos
+# em cima de `timestamp` (que tem hora) sofrem de dois problemas — (1) eventos
+# próximos da virada de meia-noite podem cair no mês/dia errado por segundos de
+# diferença; (2) em cirurgias, o primeiro evento do trace costuma ser "Aviso de
+# Cirurgia" (agendamento administrativo, pode ocorrer meses antes do
+# procedimento real), distorcendo qualquer análise que assuma "primeiro evento
+# = quando o caso aconteceu". `data_referencia` resolve os dois problemas na
+# origem, uma vez, em vez de cada notebook consumidor reimplementar sua própria
+# lógica de correção.
 # =============================================================================
 
 import dlt
@@ -45,11 +58,17 @@ def gold_events_movimentacoes():
     df = df.withColumn("source", F.lit("silver_movimentacoes"))
     df = df.withColumn("ano_mes", F.date_format(F.col("timestamp"), "yyyy-MM"))
 
+    # data pura de referência — DT_HR_MOVIMENTACAO é o único timestamp
+    # disponível nesta fonte (DATA/HORA originais foram removidas no Silver),
+    # truncada para eliminar risco de virada de dia/mês por hora de fronteira
+    df = df.withColumn("data_referencia", F.to_date(F.col("timestamp")))
+
     # seleciona apenas as colunas do schema canônico na ordem correta
     return df.select(
         "case_id", "activity", "timestamp", "lifecycle",
         "event_type", "case_type", "outcome", "resource",
-        "especialidade", "location", "source", "ano_mes"
+        "especialidade", "location", "source", "ano_mes",
+        "data_referencia"
     )
 
 @dlt.table(
@@ -72,6 +91,11 @@ def gold_events_internacoes():
     df = df.withColumn("especialidade", F.col("ESPECIALID_ATEND"))
     df = df.withColumn("source", F.lit("silver_internacoes"))
 
+    # data pura de referência — DT_HR_ATENDIMENTO é timestamp (data + hora
+    # combinadas), truncada para representar a entrada real da internação,
+    # mesmo princípio do RQ-009 (DT_ATENDIMENTO como referência confiável)
+    df = df.withColumn("data_referencia", F.to_date(F.col("DT_HR_ATENDIMENTO")))
+
     # cria a tabela com data e hora da internação
     df_internacao = df.withColumn("activity", F.lit("Internacao")) \
                       .withColumnRenamed("DT_HR_ATENDIMENTO", "timestamp") \
@@ -79,7 +103,7 @@ def gold_events_internacoes():
                       .select(
                           "case_id", "activity", "timestamp", "lifecycle",
                               "event_type", "case_type", "outcome", "resource",
-                              "especialidade", "location", "source"
+                              "especialidade", "location", "source", "data_referencia"
                       )
     
     # cria a tabela com data e hora da alta
@@ -89,7 +113,7 @@ def gold_events_internacoes():
                 .select(
                     "case_id", "activity", "timestamp", "lifecycle",
                         "event_type", "case_type", "outcome", "resource",
-                        "especialidade", "location", "source"
+                        "especialidade", "location", "source", "data_referencia"
                 )
     # captura o resultado do union antes de retornar
     df_resultado = df_internacao.unionByName(df_alta)
@@ -119,6 +143,12 @@ def gold_events_altas():
     df = df.withColumn("especialidade", F.col("DS_ESPECIALID"))
     df = df.withColumn("source", F.lit("silver_altas"))
 
+    # data pura de referência — DT_HR_ALTA_FINAL é o fechamento real do caso
+    # de alta (data + hora combinadas na origem, apesar do nome sem "HR"
+    # sugerir o contrário — confirmado via planilha fonte: DT_ALTA_FINAL e
+    # HR_ALTA_FINAL vêm separadas na extração e são fundidas no Silver)
+    df = df.withColumn("data_referencia", F.to_date(F.col("DT_HR_ALTA_FINAL")))
+
     # cria o DataFrame de prescrição da alta
     df_prescricao_alta = df.withColumn("activity", F.lit("Prescricao de alta")) \
                            .withColumnRenamed("DT_HR_PRE_MED", "timestamp") \
@@ -127,7 +157,7 @@ def gold_events_altas():
                            .select(
                                "case_id", "activity", "timestamp", "lifecycle",
                                "event_type", "case_type", "outcome", "resource",
-                               "especialidade", "location", "source"
+                               "especialidade", "location", "source", "data_referencia"
                            )
     
     # cria o DataFrame de alta médica
@@ -137,7 +167,7 @@ def gold_events_altas():
                        .select(
                            "case_id", "activity", "timestamp", "lifecycle",
                             "event_type", "case_type", "outcome", "resource",
-                            "especialidade", "location", "source"
+                            "especialidade", "location", "source", "data_referencia"
                        )
     
     # cria o DataFrame de alta hospitalar
@@ -147,7 +177,7 @@ def gold_events_altas():
                            .select(
                                "case_id", "activity", "timestamp", "lifecycle",
                                 "event_type", "case_type", "outcome", "resource",
-                                "especialidade", "location", "source"
+                                "especialidade", "location", "source", "data_referencia"
                            )
     
     # seleciona apenas as colunas do schema canônico na ordem correta
@@ -192,6 +222,14 @@ def gold_events_cirurgias():
     df = df.withColumn("especialidade", F.col("ESPECIALIDADE"))
     df = df.withColumn("source", F.lit("silver_cirurgias"))
 
+    # data pura de referência — DATA_INICIO_CIRURGIA (não DT_INICIO_CIRURGIA)
+    # é a mesma coluna já usada em gold_patient_journey como DT_CIRURGIA —
+    # reaproveita decisão já validada, em vez de usar o primeiro evento do
+    # trace (Aviso de Cirurgia), que é agendamento administrativo e pode
+    # ocorrer meses antes do procedimento real (achado: 112 de 117 casos
+    # de ano_mes incorreto em gold_variant_analysis vinham dessa distorção)
+    df = df.withColumn("data_referencia", F.to_date(F.col("DATA_INICIO_CIRURGIA")))
+
     # itera a lista de eventos para criar os DataFrames
     
     df_resultado = None
@@ -209,7 +247,7 @@ def gold_events_cirurgias():
                       .select(
                           "case_id", "activity", "timestamp", "lifecycle",
                           "event_type", "case_type", "outcome", "resource",
-                          "especialidade", "location", "source"
+                          "especialidade", "location", "source", "data_referencia"
                         ) 
         if df_resultado is None:
             df_resultado = df_evento
@@ -252,6 +290,11 @@ def gold_events_emergencia():
     df = df.withColumn("especialidade", F.col("ESPECIALIDADE"))
     df = df.withColumn("source", F.lit("silver_atendimento_emergencia"))
 
+    # data pura de referência — DT_ATENDIMENTO, mesma coluna já validada e
+    # usada no RQ-009 para gold_patient_journey (em vez de ts_chegada, que
+    # é timestamp de totem e não confiável como referência)
+    df = df.withColumn("data_referencia", F.to_date(F.col("DT_ATENDIMENTO")))
+
     # itera sobre os eventos e constrói os DataFrames
     df_resultado = None
     for coluna_timestamp, nome_atividade in eventos:
@@ -261,7 +304,7 @@ def gold_events_emergencia():
                       .select(
                           "case_id", "activity", "timestamp", "lifecycle",
                           "event_type", "case_type", "outcome", "resource",
-                          "especialidade", "location", "source"
+                          "especialidade", "location", "source", "data_referencia"
                         )
         if df_resultado is None:
             df_resultado = df_evento
@@ -304,6 +347,12 @@ def gold_events_exames_imagem():
     df = df.withColumn("location", F.lit(None).cast("string"))
     df = df.withColumn("source", F.lit("silver_exames_imagem"))
 
+    # data pura de referência — DATA_HORA_PRESCRICAO, primeiro evento real
+    # da cadeia (prescrição do exame). As colunas de data pura originais
+    # (DIA, MES, MES_ANO) foram removidas na transformação Silver, não
+    # sobrevivem para reaproveitamento — truncamento é a única fonte disponível
+    df = df.withColumn("data_referencia", F.to_date(F.col("DATA_HORA_PRESCRICAO")))
+
     # itera sobre a lista de eventos para construir os DataFrames
     df_resultado = None
 
@@ -320,7 +369,7 @@ def gold_events_exames_imagem():
                        .select(
                            "case_id", "activity", "timestamp", "lifecycle",
                           "event_type", "case_type", "outcome", "resource",
-                          "especialidade", "location", "source"
+                          "especialidade", "location", "source", "data_referencia"
                        )
         
         if df_resultado is None:
@@ -357,6 +406,12 @@ def gold_events_exames_laboratoriais():
     df = df.withColumn("location", F.lit(None).cast("string"))
     df = df.withColumn("source", F.lit("silver_exames_laboratoriais"))
 
+    # data pura de referência — HR_PED_LAB, primeiro evento real da cadeia
+    # (pedido do exame). Sem coluna de data pura separada nesta fonte;
+    # nenhuma distorção do tipo "Aviso de Cirurgia" identificada aqui, então
+    # o primeiro evento truncado é referência confiável
+    df = df.withColumn("data_referencia", F.to_date(F.col("HR_PED_LAB")))
+
     # itera sobre a lista de eventos e cria os DataFrames
     df_resultado = None
     for coluna_timestamp, nome_atividade in eventos:
@@ -366,7 +421,7 @@ def gold_events_exames_laboratoriais():
                       .select(
                           "case_id", "activity", "timestamp", "lifecycle",
                           "event_type", "case_type", "outcome", "resource",
-                          "especialidade", "location", "source"
+                          "especialidade", "location", "source", "data_referencia"
                       )
         
         if df_resultado is None:
