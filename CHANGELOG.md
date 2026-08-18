@@ -289,14 +289,66 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 
 **Passo 2 — Dashboard (AI/BI Dashboard)**
 - **Decisão revisada (13/08/2026):** dashboard estruturado em abas por página (uma aba por seção), não em scroll único como planejado originalmente — decisão tomada durante a construção da Página 1, mantida para as páginas seguintes por consistência
+- **Decisão revisada (18/08/2026):** reprogramação completa de fonte→página, motivada pela conclusão retroativa do Sprint 3 (Bottleneck, Conformance, SNA e Performance Spectrum persistidos como tabelas Gold, fato não refletido no roadmap anterior). Nº de páginas passou de 4 para 5 — inclusão da Página de Variantes, ausente do desenho original apesar de ter fonte pronta desde o fechamento do Sprint 3
 - Filtro `ano_mes` (Período) implementado na Página 1. Filtro de `tipo_jornada` **não implementado** — não fez parte do desenho final da Página 1; avaliar necessidade ao construir as páginas seguintes
 - Página 1 — KPIs de jornada agregada → fonte: `gold_patient_journey` — ~~concluída e publicada~~ (ver `docs/06-deliverables/dashboard-kpis-jornada.md`)
-- Página 2 — Análise de gargalos → fonte: `gold_patient_journey` + `gold_bi_jornada`
-- Página 3 — Conformance checking → fonte: `gold_patient_journey`
-- Página 4 — Handover / SNA → fonte: `gold_events_emergencia`
+- Página 2 — Gargalos → cards de duração macro + ranking top gargalos + heatmap dia-da-semana + DFG (grafo de fluxo colorido por frequência/tempo) → fontes: `gold_patient_journey` + `gold_bi_jornada` + `gold_bottleneck` + `gold_performance_spectrum`
+  - **Pendência técnica não resolvida:** viabilidade de embutir o DFG (renderizado via networkx/matplotlib, mesmo padrão usado no SNA) como imagem estática dentro do AI/BI Dashboard ainda não validada, Databricks AI/BI não executa Python nativamente. Primeira tarefa da construção desta página, não decisão fechada.
+- Página 3 — Conformidade → fitness/precision por fonte, tendência por `ano_mes` → fonte: `gold_conformance` *(corrigido — roadmap anterior apontava incorretamente para `gold_patient_journey`)*
+- Página 4 — Handover / SNA → sociograma setor↔setor (grafo, `gold_sna_handover` #1) + ranking de subcontracting por especialidade (`gold_sna_subcontracting` #3) → fontes: `gold_sna_handover` + `gold_sna_subcontracting` *(corrigido — roadmap anterior apontava incorretamente para `gold_events_emergencia`, tabela bruta)*
+- Página 5 (nova) — Variantes de Processo → ranking + gráfico de Pareto (frequência + % cobertura acumulada) → fonte: `gold_variant_analysis`
+- **Fora do escopo do Dashboard, decisão consciente:** `gold_data_quality` — tabela de governança de dado (cobertura de timestamp), audiência de TI/operação, não de gestão executiva. Sem tabela nova nem página alocada; revisar escopo se a diretoria pedir explicitamente.
 - Todos os visuais projetados com eixo temporal pronto para receber meses subsequentes — mesmo que no momento da entrega só exista março/2026
+- **Nota (18/08/2026):** três capacidades de granularidade micro (case-level) foram identificadas como incompatíveis com o Dashboard por volume/renderização — Performance Spectrum real, diagnóstico de Conformance por caso, Process Tree/BPMN interativo. Detalhadas e reservadas na Fase 3 — Databricks App, abaixo.
+
+**Decisão revisada (18/08/2026, tarde) — Auditoria de completude de filtro por página**
+
+Motivada por: filtro "Processo" nos cards macro da Página 2 revelou que o
+roadmap original definiu páginas sem verificar se as tabelas Gold sustentam
+as dimensões de filtro necessárias. Auditoria completa das 5 páginas contra
+4 dimensões candidatas (Período, Processo, Tipo de Jornada, Especialidade)
+antes de retomar qualquer construção.
+
+**Correções de engenharia necessárias (reabre o notebook `03_process_mining.ipynb`):**
+- `gold_bottleneck`: reconstruir agregação a partir de `gold_event_log`
+  incluindo `especialidade` (campo já existe na origem, perdido no
+  `groupby` atual) e `journey_type` (via join com `gold_patient_journey`
+  por `case_id`/`cd_atendimento`, feito antes do `groupby` final)
+- `gold_performance_spectrum`: mesma correção, mesmo motivo
+- `gold_variant_analysis`: adicionar `ano_mes` real (hoje só tem
+  `data_referencia` — viola o princípio de dimensão temporal obrigatória
+  em toda tabela Gold) e `journey_type` (via mesmo mecanismo de join por
+  `case_id`, rastreado antes da agregação de variante)
+
+**Decisões de design (sem correção de dado — granularidade não sustenta a dimensão):**
+- `gold_conformance`: sem `especialidade`/`journey_type`. Fitness/precision
+  são propriedades de Petri Net descoberta — segmentar exigiria discovery
+  separado por segmento (custo metodológico desproporcional ao valor).
+  Fica em `source` × `ano_mes`.
+- `gold_sna_handover`/`gold_sna_subcontracting`: sem filtro de Processo.
+  Cada linha relaciona DOIS processos (`source_anterior`/`source`) —
+  filtro de processo único quebraria a leitura do sociograma.
+- Variant Analysis: sem filtro de Processo, mesma lógica de SNA — variante
+  é caminho completo do caso, atravessa processos por definição.
+
+**Filtros finais por página, após auditoria:**
+| Página | Período | Processo | Tipo de Jornada | Especialidade |
+|---|---|---|---|---|
+| 1 — KPIs de Jornada | ✅ | — (n/a, jornada agregada) | ✅ já é a dimensão nativa da página | — (decisão de design, 18/08: especialidade não é estável em nível de jornada — caso pode atravessar múltiplas especialidades) |
+| 2 — Gargalos (cards macro) | ✅ | — | 🔲 a implementar | — (mesma decisão de design da Página 1 — cards macro também são nível de jornada) |
+| 2 — Gargalos (ranking/heatmap/DFG) | ✅ | ✅ implementado | 🔲 a implementar (pós-correção) | 🔲 a implementar (pós-correção) |
+| 3 — Conformidade | ✅ | ✅ | — (decisão de design) | — (decisão de design) |
+| 4 — Handover/SNA | ✅ | — (decisão de design) | — (decisão de design) | ✅ já disponível |
+| 5 — Variantes | 🔲 a corrigir (falta `ano_mes` real) | — (decisão de design) | 🔲 a implementar (pós-correção) | — (decisão de design, mesma lógica das Páginas 1 e 2-macro) |
 
 **Passo 3 — Genie Space**
+- **Pendência de revisão (18/08/2026):** escopo definido abaixo foi fechado
+  antes da auditoria de completude de filtro que revelou que `gold_event_log`
+  carrega `especialidade` e `case_id` de forma mais rica que
+  `gold_events_emergencia` isolada. Revisar este escopo depois que as
+  correções de Gold (Bottleneck, Performance Spectrum, Variant Analysis)
+  estiverem implementadas — pode haver fonte melhor disponível para as
+  perguntas conversacionais do que a listada abaixo.
 - Escopo restrito: `gold_patient_journey` + `gold_bi_jornada` + `gold_events_emergencia`
   - `gold_patient_journey`: perguntas sobre jornada completa e métricas consolidadas
   - `gold_events_emergencia`: perguntas com granularidade de evento dentro da emergência (ex: tempo entre triagem e consulta)
@@ -320,8 +372,12 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - Filtros da interface: source, `ano_mes` (range de meses, não só mês único),
   turno, threshold de ruído, o filtro de período deve aceitar seleção múltipla
   de meses desde o início, porque com histórico o usuário vai querer comparar janelas
-- Visualizações: grafo de fluxo recalculável, performance spectrum, subcontracting
-- Árvore de processo (Graphviz) — item represado do Sprint 3
+- Visualizações:
+  - Grafo de fluxo recalculável (DFG interativo, por período/filtro)
+  - Performance Spectrum real — uma linha por atendimento, colorida por duração da transição; requer tabela nova, granularidade caso × transição × timestamps, ainda não existe
+  - Subcontracting (exploração livre, sem o recorte curado que foi para o Dashboard)
+  - Diagnóstico de Conformance Checking por caso — quais atendimentos específicos desviaram do modelo e onde; token replay já calcula isso, nunca foi persistido
+  - Árvore de processo (Graphviz) — item represado do Sprint 3, já gerado localmente (pasta `temp/`), nunca integrado a nenhum entregável
 - Deploy e validação
 - Documentação em `docs/06-deliverables/app.md`
 
