@@ -42,16 +42,30 @@ def gold_events_movimentacoes():
     # leitura da tabela silver movimentacoes
     df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_movimentacoes")
 
+    # deduplica eventos de transferência — TRANSFER. DE e TRANSFER. PARA
+    # descrevem o mesmo evento físico (mesmo timestamp, mesma origem/destino),
+    # registrados duas vezes na origem; mantém só uma ocorrência por evento
+    df = df.dropDuplicates(["CD_INTERNACAO", "DT_HR_MOVIMENTACAO", "ORIGEM", "DESTINO"])
+
     # renomeira colunas existentes para o schema canônico
     df = df.withColumnRenamed("CD_INTERNACAO", "case_id")
     df = df.withColumn(
         "activity",
-        F.concat(
-            F.col("TIPO"),
-            F.lit(": "),
-            F.coalesce(F.nullif(F.trim(F.col("ORIGEM")), F.lit("")), F.lit("Externo")),
-            F.lit(" → "),
-            F.coalesce(F.nullif(F.trim(F.col("DESTINO")), F.lit("")), F.lit("Externo"))
+        F.when(F.col("TIPO").isin("TRANSFER. DE", "TRANSFER. PARA"),
+            F.concat(
+                F.lit("TRANSFERÊNCIA: "),
+                F.coalesce(F.nullif(F.trim(F.col("ORIGEM")), F.lit("")), F.lit("Externo")),
+                F.lit(" → "),
+                F.coalesce(F.nullif(F.trim(F.col("DESTINO")), F.lit("")), F.lit("Externo"))
+            )
+        ).otherwise(
+            F.concat(
+                F.col("TIPO"),
+                F.lit(": "),
+                F.coalesce(F.nullif(F.trim(F.col("ORIGEM")), F.lit("")), F.lit("Externo")),
+                F.lit(" → "),
+                F.coalesce(F.nullif(F.trim(F.col("DESTINO")), F.lit("")), F.lit("Externo"))
+            )
         )
     )
     df = df.withColumnRenamed("DT_HR_MOVIMENTACAO", "timestamp")
