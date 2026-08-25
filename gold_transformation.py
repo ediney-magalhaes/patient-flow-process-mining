@@ -44,7 +44,16 @@ def gold_events_movimentacoes():
 
     # renomeira colunas existentes para o schema canônico
     df = df.withColumnRenamed("CD_INTERNACAO", "case_id")
-    df = df.withColumnRenamed("TIPO", "activity")
+    df = df.withColumn(
+        "activity",
+        F.concat(
+            F.col("TIPO"),
+            F.lit(": "),
+            F.coalesce(F.nullif(F.trim(F.col("ORIGEM")), F.lit("")), F.lit("Externo")),
+            F.lit(" → "),
+            F.coalesce(F.nullif(F.trim(F.col("DESTINO")), F.lit("")), F.lit("Externo"))
+        )
+    )
     df = df.withColumnRenamed("DT_HR_MOVIMENTACAO", "timestamp")
     df = df.withColumnRenamed("UNIDADE", "location")
 
