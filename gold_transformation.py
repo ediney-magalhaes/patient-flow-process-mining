@@ -607,7 +607,8 @@ def gold_patient_journey():
         .withColumn("ts_alta_emergencia", F.lit(None).cast("timestamp")) \
         .withColumn("fl_conversao", F.lit(0)) \
         .withColumn("fl_evasao", F.lit(0)) \
-        .withColumn("atend_internacao", F.lit(None).cast("string"))
+        .withColumn("atend_internacao", F.lit(None).cast("string")) \
+        .withColumn("especialidade_emergencia", F.lit(None).cast("string"))
 
     
     # seleção das colunas necessárias na tabela de cirurgias
