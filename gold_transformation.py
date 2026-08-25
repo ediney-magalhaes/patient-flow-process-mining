@@ -62,13 +62,14 @@ def gold_events_movimentacoes():
     # disponível nesta fonte (DATA/HORA originais foram removidas no Silver),
     # truncada para eliminar risco de virada de dia/mês por hora de fronteira
     df = df.withColumn("data_referencia", F.to_date(F.col("timestamp")))
+    df = df.withColumn("case_id_jornada", F.col("case_id"))
 
     # seleciona apenas as colunas do schema canônico na ordem correta
     return df.select(
         "case_id", "activity", "timestamp", "lifecycle",
         "event_type", "case_type", "outcome", "resource",
         "especialidade", "location", "source", "ano_mes",
-        "data_referencia"
+        "data_referencia", "case_id_jornada"
     )
 
 @dlt.table(
@@ -100,21 +101,25 @@ def gold_events_internacoes():
     df_internacao = df.withColumn("activity", F.lit("Internacao")) \
                       .withColumnRenamed("DT_HR_ATENDIMENTO", "timestamp") \
                       .withColumnRenamed("CD_INTERNACAO", "case_id") \
+                      .withColumn("case_id_jornada", F.col("case_id")) \
                       .select(
                           "case_id", "activity", "timestamp", "lifecycle",
-                              "event_type", "case_type", "outcome", "resource",
-                              "especialidade", "location", "source", "data_referencia"
-                      )
+                            "event_type", "case_type", "outcome", "resource",
+                            "especialidade", "location", "source", "data_referencia",
+                            "case_id_jornada"
+                        )
     
     # cria a tabela com data e hora da alta
     df_alta = df.withColumn("activity", F.lit("Alta da Internacao")) \
                 .withColumnRenamed("DT_HR_ALTA", "timestamp") \
                 .withColumnRenamed("CD_INTERNACAO", "case_id") \
+                .withColumn("case_id_jornada", F.col("case_id")) \
                 .select(
                     "case_id", "activity", "timestamp", "lifecycle",
-                        "event_type", "case_type", "outcome", "resource",
-                        "especialidade", "location", "source", "data_referencia"
-                )
+                    "event_type", "case_type", "outcome", "resource",
+                    "especialidade", "location", "source", "data_referencia",
+                    "case_id_jornada"
+                    )
     # captura o resultado do union antes de retornar
     df_resultado = df_internacao.unionByName(df_alta)
     df_resultado = df_resultado.withColumn("ano_mes", F.date_format(F.col("timestamp"), "yyyy-MM"))
@@ -148,6 +153,7 @@ def gold_events_altas():
     # sugerir o contrário — confirmado via planilha fonte: DT_ALTA_FINAL e
     # HR_ALTA_FINAL vêm separadas na extração e são fundidas no Silver)
     df = df.withColumn("data_referencia", F.to_date(F.col("DT_HR_ALTA_FINAL")))
+    df = df.withColumn("case_id_jornada", F.col("ATENDIMENTO"))
 
     # cria o DataFrame de prescrição da alta
     df_prescricao_alta = df.withColumn("activity", F.lit("Prescricao de alta")) \
@@ -157,7 +163,8 @@ def gold_events_altas():
                            .select(
                                "case_id", "activity", "timestamp", "lifecycle",
                                "event_type", "case_type", "outcome", "resource",
-                               "especialidade", "location", "source", "data_referencia"
+                               "especialidade", "location", "source", "data_referencia",
+                               "case_id_jornada"
                            )
     
     # cria o DataFrame de alta médica
@@ -167,7 +174,8 @@ def gold_events_altas():
                        .select(
                            "case_id", "activity", "timestamp", "lifecycle",
                             "event_type", "case_type", "outcome", "resource",
-                            "especialidade", "location", "source", "data_referencia"
+                            "especialidade", "location", "source", "data_referencia",
+                            "case_id_jornada"
                        )
     
     # cria o DataFrame de alta hospitalar
@@ -177,7 +185,8 @@ def gold_events_altas():
                            .select(
                                "case_id", "activity", "timestamp", "lifecycle",
                                 "event_type", "case_type", "outcome", "resource",
-                                "especialidade", "location", "source", "data_referencia"
+                                "especialidade", "location", "source", "data_referencia",
+                                "case_id_jornada"
                            )
     
     # seleciona apenas as colunas do schema canônico na ordem correta
@@ -229,6 +238,7 @@ def gold_events_cirurgias():
     # ocorrer meses antes do procedimento real (achado: 112 de 117 casos
     # de ano_mes incorreto em gold_variant_analysis vinham dessa distorção)
     df = df.withColumn("data_referencia", F.to_date(F.col("DATA_INICIO_CIRURGIA")))
+    df = df.withColumn("case_id_jornada", F.col("ATENDIMENTO"))
 
     # itera a lista de eventos para criar os DataFrames
     
@@ -247,7 +257,8 @@ def gold_events_cirurgias():
                       .select(
                           "case_id", "activity", "timestamp", "lifecycle",
                           "event_type", "case_type", "outcome", "resource",
-                          "especialidade", "location", "source", "data_referencia"
+                          "especialidade", "location", "source", "data_referencia",
+                          "case_id_jornada"
                         ) 
         if df_resultado is None:
             df_resultado = df_evento
@@ -295,6 +306,12 @@ def gold_events_emergencia():
     # é timestamp de totem e não confiável como referência)
     df = df.withColumn("data_referencia", F.to_date(F.col("DT_ATENDIMENTO")))
 
+    # coluna da jornada completa do paciente
+    df = df.withColumn(
+        "case_id_jornada",
+        F.coalesce(F.col("atend_internacao"), F.col("CD_ATENDIMENTO"))
+    )
+
     # itera sobre os eventos e constrói os DataFrames
     df_resultado = None
     for coluna_timestamp, nome_atividade in eventos:
@@ -304,7 +321,8 @@ def gold_events_emergencia():
                       .select(
                           "case_id", "activity", "timestamp", "lifecycle",
                           "event_type", "case_type", "outcome", "resource",
-                          "especialidade", "location", "source", "data_referencia"
+                          "especialidade", "location", "source", "data_referencia",
+                          "case_id_jornada"
                         )
         if df_resultado is None:
             df_resultado = df_evento
@@ -322,6 +340,12 @@ def gold_events_exames_imagem():
 
     # leitura da tabela silver_exames_imagem
     df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_exames_imagem")
+
+    # verifica correspondência de exames de imagem na emergência
+    df_ponte = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_atendimento_emergencia") \
+        .select("CD_ATENDIMENTO", "atend_internacao")
+
+    df = df.join(df_ponte, on="CD_ATENDIMENTO", how="left")
 
     # lista de eventos
     eventos = [
@@ -353,6 +377,12 @@ def gold_events_exames_imagem():
     # sobrevivem para reaproveitamento — truncamento é a única fonte disponível
     df = df.withColumn("data_referencia", F.to_date(F.col("DATA_HORA_PRESCRICAO")))
 
+    # acrescenta coluna da jornada completa
+    df = df.withColumn(
+        "case_id_jornada",
+        F.coalesce(F.col("atend_internacao"), F.col("CD_ATENDIMENTO"))
+    )
+
     # itera sobre a lista de eventos para construir os DataFrames
     df_resultado = None
 
@@ -369,7 +399,8 @@ def gold_events_exames_imagem():
                        .select(
                            "case_id", "activity", "timestamp", "lifecycle",
                           "event_type", "case_type", "outcome", "resource",
-                          "especialidade", "location", "source", "data_referencia"
+                          "especialidade", "location", "source", "data_referencia",
+                          "case_id_jornada"
                        )
         
         if df_resultado is None:
@@ -389,6 +420,12 @@ def gold_events_exames_laboratoriais():
     # leitura da tabela silver_exames_laboratoriais
     df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_exames_laboratoriais")
 
+    # verifica correspondência de exames laboratoriais na emergência
+    df_ponte = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_atendimento_emergencia") \
+        .select("CD_ATENDIMENTO", "atend_internacao")
+
+    df = df.join(df_ponte, on="CD_ATENDIMENTO", how="left")
+
     # lista de eventos
     eventos = [
         ("HR_PED_LAB",      "Pedido de Exame Laboratorial"),
@@ -405,6 +442,10 @@ def gold_events_exames_laboratoriais():
     df = df.withColumn("especialidade", F.lit(None).cast("string"))
     df = df.withColumn("location", F.lit(None).cast("string"))
     df = df.withColumn("source", F.lit("silver_exames_laboratoriais"))
+    df = df.withColumn(
+        "case_id_jornada",
+        F.coalesce(F.col("atend_internacao"), F.col("CD_ATENDIMENTO"))
+    )
 
     # data pura de referência — HR_PED_LAB, primeiro evento real da cadeia
     # (pedido do exame). Sem coluna de data pura separada nesta fonte;
@@ -421,7 +462,8 @@ def gold_events_exames_laboratoriais():
                       .select(
                           "case_id", "activity", "timestamp", "lifecycle",
                           "event_type", "case_type", "outcome", "resource",
-                          "especialidade", "location", "source", "data_referencia"
+                          "especialidade", "location", "source", "data_referencia",
+                          "case_id_jornada"
                       )
         
         if df_resultado is None:
