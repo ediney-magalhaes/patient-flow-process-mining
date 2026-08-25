@@ -578,7 +578,8 @@ def gold_patient_journey():
         F.col("DT_HR_ALTA").alias("ts_alta_emergencia"),
         F.col("fl_conversao"),
         F.col("fl_evasao"),
-        F.col("atend_internacao")
+        F.col("atend_internacao"),
+        F.col("ESPECIALIDADE").alias("especialidade_emergencia")
     )
 
     # seleção das colunas necessárias na tabela de internações
@@ -587,7 +588,8 @@ def gold_patient_journey():
         F.col("COD_PACIENTE").alias("CD_PACIENTE"),
         F.col("DT_HR_ATENDIMENTO").alias("ts_entrada_internacao"),
         F.col("DT_HR_ALTA").alias("ts_alta_internacao"),
-        F.col("ORIGEM_ATEND")
+        F.col("ORIGEM_ATEND"),
+        F.col("ESPECIALID_ATEND").alias("especialidade_internacao")
     )
 
     # filtra apenas consultas da emergência convertida, usando left_anti para isolar internações sem origem na emergência
@@ -615,7 +617,8 @@ def gold_patient_journey():
         F.col("DATA_INICIO_CIRURGIA").alias("DT_CIRURGIA"),
         F.col("DT_HR_ENTRADA_SALA_CIRURG").alias("ts_entrada_cirurgia"),
         F.col("DT_HR_SAIDA_SALA_CIRURG").alias("ts_saida_cirurgia"),
-        F.col("SN_PRINCIPAL")
+        F.col("SN_PRINCIPAL"),
+        F.col("ESPECIALIDADE").alias("especialidade_cirurgia")
     )
 
     # cirurgias de internação (CD_INTERNACAO existe em silver_internacoes)
@@ -766,7 +769,8 @@ def gold_patient_journey():
             df_cirug_ambulatorial
                 .drop("CD_INTERNACAO", "CD_PACIENTE")
                 .withColumnRenamed("ts_entrada_cirurgia", "ts_entrada_cirurgia_amb")
-                .withColumnRenamed("ts_saida_cirurgia", "ts_saida_cirurgia_amb"),
+                .withColumnRenamed("ts_saida_cirurgia", "ts_saida_cirurgia_amb")
+                .withColumnRenamed("especialidade_cirurgia", "especialidade_cirurgia_amb"),
             on=F.col("CD_ATENDIMENTO") == F.col("CD_ATENDIMENTO_AMBULATORIAL"),
             how="left"
         ) \
@@ -774,7 +778,9 @@ def gold_patient_journey():
             F.coalesce(F.col("ts_entrada_cirurgia"), F.col("ts_entrada_cirurgia_amb"))) \
         .withColumn("ts_saida_cirurgia",
             F.coalesce(F.col("ts_saida_cirurgia"), F.col("ts_saida_cirurgia_amb"))) \
-        .drop("ts_entrada_cirurgia_amb", "ts_saida_cirurgia_amb", "CD_ATENDIMENTO_AMBULATORIAL") \
+        .withColumn("especialidade_cirurgia",
+            F.coalesce(F.col("especialidade_cirurgia"), F.col("especialidade_cirurgia_amb"))) \
+        .drop("ts_entrada_cirurgia_amb", "ts_saida_cirurgia_amb", "especialidade_cirurgia_amb", "CD_ATENDIMENTO_AMBULATORIAL") \
         .join(df_altas, on="CD_INTERNACAO", how="left") \
         .join(df_primeiro_leito, on="CD_INTERNACAO", how="left")
     
@@ -834,5 +840,8 @@ def gold_patient_journey():
         "duracao_emergencia_internacao_min",
         "duracao_internacao_cirurgia_min",
         "duracao_cirurgia_leito_min",
-        "duracao_total_min"
+        "duracao_total_min",
+        "especialidade_emergencia",
+        "especialidade_internacao",
+        "especialidade_cirurgia"
     )
