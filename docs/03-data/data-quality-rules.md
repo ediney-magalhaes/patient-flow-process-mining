@@ -413,3 +413,29 @@ capturava esses casos corretamente, faltava apenas o nome de negócio. Ao
 processar novos meses, monitorar se o volume proporcional de
 `internacao_clinica_direta` se mantém próximo dos ~14% do Bloco B observados
 em março/2026, ou se essa proporção era específica desse mês.
+
+### RQ-011: `fl_conversao = 1` sem `cd_internacao` correspondente em `internacao_clinica`
+
+**Contexto:** Durante a extensão de `gold_patient_journey` com colunas de
+especialidade por segmento (18/08/2026), identificados 7 casos (de 282,
+~2,5%) classificados como `journey_type = internacao_clinica`
+(`fl_conversao = 1`) sem `cd_internacao` correspondente em
+`silver_internacoes` — logo, sem `ts_entrada_internacao` nem
+`especialidade_internacao` preenchidos, apesar da categoria implicar
+internação real.
+
+**Investigação:** `fl_conversao` é curada externamente (BigQuery,
+`pipeline-analytics-emergencia`), fonte de verdade única de conversão
+por decisão de governança do projeto. Os 7 casos têm a flag de conversão
+vinda dessa fonte externa, mas o registro de internação correspondente
+não existe (ou não bate) em `silver_internacoes` — sistemas de origem
+diferentes, sincronização não garantida entre eles.
+
+**Decisão:** Não corrigido neste projeto. `fl_conversao` não é
+recalculada nem validada aqui — é consumida como está, por princípio já
+estabelecido (single source of truth, `fl_conversao`/`fl_evasao` do
+BigQuery curado prevalecem sobre lógica local). Divergência de
+sincronização entre a fonte de conversão e `silver_internacoes` é
+responsabilidade do pipeline de origem, fora do escopo deste projeto.
+Sem ação corretiva — registrado para rastreabilidade caso o padrão
+cresça em volume nas próximas cargas.
