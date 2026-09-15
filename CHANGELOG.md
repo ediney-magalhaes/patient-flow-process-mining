@@ -61,6 +61,20 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   Jornada Internação), 11 cards, 4 gráficos, 4 datasets SQL e ~15 campos
   calculados no Data Model; documentado em
   `docs/06-deliverables/dashboard-kpis-jornada.md`
+- `gold_dfg_macro`: nova tabela Gold com 15 transições macro curadas
+  manualmente (mais 1 linha de exceção metodológica) para alimentar o
+  DFG panorâmico da Página 2 do Dashboard (ADR-0016)
+- ADR-0016: design de `gold_dfg_macro` — curadoria manual de transições,
+  exceção metodológica da linha "Alta da Emergência → Fim", e resolução
+  visual da duplicação de posição do nó "Transferência" no Custom Viz
+- Dashboard "Mapa Digital do Fluxo do Paciente", página "Gargalos"
+  (Página 2) concluída — 3 filtros globais (Período, Processo,
+  Especialidade multi-select), 3 cards macro de duração
+  (Emergência→Internação, Internação→Cirurgia, Até o Leito), ranking de
+  top gargalos por transição, heatmap de padrão por dia da semana, e DFG
+  (grafo de fluxo panorâmico) via Custom Viz Vega-Lite; datasets:
+  `cards_gargalos_macro`, `ranking_gargalos_chart`,
+  `heatmap_performance_spectrum`, `dfg_arestas`
 
 #### Corrigido
 
@@ -95,6 +109,10 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   mapeado como Field no Data Model, quebrando o preview dos dois datasets
   com `UNRESOLVED_COLUMN` — campo removido, sem impacto em widgets (nenhum
   os referenciava ainda)
+- RQ-012: persistência não idempotente (`.mode("append")`) e schema
+  divergente (faltavam `especialidade` e `tempo_mediano_min`) corrigidos
+  na linha de exceção "Alta da Emergência → Fim" de `gold_dfg_macro` —
+  substituída por `MERGE INTO` na chave `(ano_mes, de, para)`
 
 #### Sprint 3 — Process Mining (concluído)
 
@@ -292,7 +310,8 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - **Decisão revisada (18/08/2026):** reprogramação completa de fonte→página, motivada pela conclusão retroativa do Sprint 3 (Bottleneck, Conformance, SNA e Performance Spectrum persistidos como tabelas Gold, fato não refletido no roadmap anterior). Nº de páginas passou de 4 para 5 — inclusão da Página de Variantes, ausente do desenho original apesar de ter fonte pronta desde o fechamento do Sprint 3
 - Filtro `ano_mes` (Período) implementado na Página 1. Filtro de `tipo_jornada` **não implementado** — não fez parte do desenho final da Página 1; avaliar necessidade ao construir as páginas seguintes
 - Página 1 — KPIs de jornada agregada → fonte: `gold_patient_journey` — ~~concluída e publicada~~ (ver `docs/06-deliverables/dashboard-kpis-jornada.md`)
-- Página 2 — Gargalos → cards de duração macro + ranking top gargalos + heatmap dia-da-semana + DFG (grafo de fluxo colorido por frequência/tempo) → fontes: `gold_patient_journey` + `gold_bi_jornada` + `gold_bottleneck` + `gold_performance_spectrum`
+- Página 2 — Gargalos → cards de duração macro + ranking top gargalos + heatmap dia-da-semana + DFG (grafo de fluxo panorâmico) → fontes: `gold_patient_journey` + `gold_bi_jornada` + `gold_bottleneck` + `gold_performance_spectrum` + `gold_dfg_macro` — ~~concluída~~
+  - **Pendência técnica resolvida (15/09/2026):** o DFG não foi embutido como imagem estática via networkx/matplotlib, como cogitado originalmente, implementado como Custom Viz Vega-Lite nativo do AI/BI Dashboard, consumindo `gold_dfg_macro` diretamente via SQL. Decisão completa em ADR-0016.
   - **Pendência técnica não resolvida:** viabilidade de embutir o DFG (renderizado via networkx/matplotlib, mesmo padrão usado no SNA) como imagem estática dentro do AI/BI Dashboard ainda não validada, Databricks AI/BI não executa Python nativamente. Primeira tarefa da construção desta página, não decisão fechada.
 - Página 3 — Conformidade → fitness/precision por fonte, tendência por `ano_mes` → fonte: `gold_conformance` *(corrigido — roadmap anterior apontava incorretamente para `gold_patient_journey`)*
 - Página 4 — Handover / SNA → sociograma setor↔setor (grafo, `gold_sna_handover` #1) + ranking de subcontracting por especialidade (`gold_sna_subcontracting` #3) → fontes: `gold_sna_handover` + `gold_sna_subcontracting` *(corrigido — roadmap anterior apontava incorretamente para `gold_events_emergencia`, tabela bruta)*

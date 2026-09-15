@@ -626,11 +626,17 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 ### gold_dfg_macro
 
 - **Schema:** `hospital_santa_rosa.gold_fluxo`
-- **Granularidade:** 1 linha por transição entre marcos × mês × especialidade de origem
-- **Origem:** `gold_event_log`, processado via PM4Py no notebook `03_process_mining.ipynb`, filtrado para uma lista fechada de 15 marcos definida por curadoria manual (ver ADR-0016)
-- **Volume referência:** 78 linhas (mar/2026)
-- **Atualização:** manual, recalculada e sobrescrita quando o notebook de Process
-  Mining é executado, não faz parte do pipeline `gold_transformations`
+- **Granularidade:** 1 linha por transição entre marcos × mês × especialidade de origem, exceto a linha de exceção descrita abaixo, que é 1 linha por mês, sem quebra por especialidade
+- **Origem:** `gold_event_log`, processado via PM4Py no notebook `03_process_mining.ipynb`, filtrado para uma lista fechada de 15 marcos definida por curadoria manual (ver ADR-0016). Uma 16ª linha por mês, a exceção "Alta da Emergência → Fim" — vem de `gold_patient_journey`, não do event log (ver Nota de exceção)
+- **Volume referência:** 78 linhas (mar/2026), incluindo 1 linha da exceção "Alta da Emergência → Fim"
+- **Atualização:** manual, recalculada quando o notebook de Process Mining é
+  executado, não faz parte do pipeline `gold_transformations`
+- **Nota de persistência:** as 14 transições do event log são escritas via
+  `.mode("overwrite")` (tabela inteira reconstruída a cada execução); a linha
+  de exceção "Alta da Emergência → Fim" é escrita separadamente via
+  `MERGE INTO` idempotente na chave `(ano_mes, de, para)` — não `append`,
+  para que reexecutar essa célula isoladamente não duplique a linha por mês.
+  Ver ADR-0016, item 4.
 - **Propósito:** alimenta o visual de DFG (grafo de fluxo) da Página 2 do
   Dashboard, a única visão da Página 2 que não responde ao filtro de
   Processo, por definição (é a visão "todos os processos juntos")
@@ -639,6 +645,17 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
   passos intermediários omitidos da visão panorâmica (ex: exames feitos
   entre "Fim da Consulta" e "Internação"). Não comparável diretamente ao
   tempo de `gold_bottleneck` para o mesmo par de atividades.
+- **Nota de exceção:** a transição `Alta da Emergência → Fim` não é uma
+  transição observada no event log, "Fim" é um marco sintético que
+  representa a ausência de próxima atividade (paciente teve alta da
+  emergência sem internar). Calculada a partir de `gold_patient_journey`
+  filtrado a `journey_type = 'atendimento_emergencia'`. Ver ADR-0016, item 4.
+- **Nota de leitura:** o valor `TRANSFERÊNCIA` aparece em `de`/`para` em
+  dois momentos clínicos distintos da jornada cirúrgica (pré-cirurgia:
+  `Internacao → TRANSFERÊNCIA`; pós-cirurgia: `Fim da Cirurgia →
+  TRANSFERÊNCIA`), é o mesmo nó lógico nesta tabela, a distinção visual
+  entre os dois momentos é resolvida só no widget do dashboard, não na
+  estrutura de dados. Ver ADR-0016, item 5.
 - **Nota de manutenção:** a lista de 15 marcos e a lista de transições
   aprovadas (ADR-0016) são curadoria manual, não recalculadas
   automaticamente, mudanças no processo clínico do hospital exigem
@@ -648,7 +665,7 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 | Coluna | Tipo | Descrição |
 |---|---|---|
 | `ano_mes` | string | Mês de referência, derivado de `data_referencia` do marco de origem |
-| `especialidade` | string | Especialidade médica do evento de origem da transição (bruta, sem tradução — padronização acontece na query do dashboard, via `vw_dim_especialidade`) |
+| `especialidade` | string | Especialidade médica do evento de origem da transição (bruta, sem tradução, padronização acontece na query do dashboard, via `vw_dim_especialidade`). Nula para a linha de exceção `Alta da Emergência → Fim`, que não é quebrada por especialidade |
 | `de` | string | Marco de origem da transição (um dos 15 nós da lista fechada) |
 | `para` | string | Marco de destino da transição |
 | `tempo_medio_min` | double | Tempo médio total decorrido entre os dois marcos, em minutos |

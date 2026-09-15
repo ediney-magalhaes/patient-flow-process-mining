@@ -414,7 +414,7 @@ processar novos meses, monitorar se o volume proporcional de
 `internacao_clinica_direta` se mantém próximo dos ~14% do Bloco B observados
 em março/2026, ou se essa proporção era específica desse mês.
 
-### RQ-011: `fl_conversao = 1` sem `cd_internacao` correspondente em `internacao_clinica`
+## RQ-011: `fl_conversao = 1` sem `cd_internacao` correspondente em `internacao_clinica`
 
 **Contexto:** Durante a extensão de `gold_patient_journey` com colunas de
 especialidade por segmento (18/08/2026), identificados 7 casos (de 282,
@@ -439,3 +439,55 @@ sincronização entre a fonte de conversão e `silver_internacoes` é
 responsabilidade do pipeline de origem, fora do escopo deste projeto.
 Sem ação corretiva — registrado para rastreabilidade caso o padrão
 cresça em volume nas próximas cargas.
+
+
+## RQ-012 — Persistência não idempotente e schema divergente na linha de exceção de `gold_dfg_macro`
+
+- **Tabela de origem:** `gold_dfg_macro`
+- **Célula/campo afetado:** célula de persistência da linha "Alta da Emergência → Fim" (`03_process_mining.ipynb`)
+- **Data do achado:** 2026-09-15
+- **Contexto:** ADR-0016 (fechamento da dívida de documentação da Página 2 do Dashboard)
+
+### Achado
+
+Ao revisar a ADR-0016 para fechar pendências abertas, dois problemas foram
+identificados na célula que persiste a linha de exceção "Alta da Emergência
+→ Fim" (a 16ª linha da tabela, calculada separadamente das outras 15 via
+`.shift()`):
+
+1. **Persistência via `.mode("append")` sem chave de deduplicação.** A célula
+   anterior, que persiste as 14 transições principais, usa `.mode("overwrite")`
+   e reconstrói a tabela inteira a cada execução, o `append` da linha de
+   exceção só produzia resultado correto porque dependia implicitamente dessa
+   ordem de execução (overwrite antes, append depois, sempre juntos).
+   Reexecutar a célula de `append` isoladamente (cenário comum em depuração)
+   duplicaria a linha por `ano_mes`, sem nenhum erro visível.
+2. **Schema divergente do `SELECT` de origem.** O `df_dfg_final` (persistido
+   via overwrite) tem 7 colunas: `ano_mes, especialidade, de, para,
+   tempo_medio_min, tempo_mediano_min, frequencia`. O `SELECT` que gerava a
+   linha de exceção produzia apenas 5, faltavam `especialidade` e
+   `tempo_mediano_min`.
+
+### Causa raiz
+
+A linha de exceção foi adicionada depois da lógica principal das 14
+transições, como ajuste pontual, sem revisão cruzada contra o schema final
+da tabela nem contra o padrão de persistência (`overwrite`) já em uso no
+resto da célula.
+
+### Decisão
+
+Célula reescrita para usar `MERGE INTO` (Delta Lake) na chave
+`(ano_mes, de, para)`, com `especialidade` explicitamente `NULL` e
+`tempo_mediano_min` calculado via `percentile_approx`. Idempotência
+confirmada por teste manual: duas execuções consecutivas da célula produzem
+a mesma contagem por `ano_mes`. Decisão completa e código final documentados
+em ADR-0016, item 4.
+
+### Ação futura recomendada
+
+Ao adicionar uma linha de exceção ou ajuste pontual a uma tabela Gold já
+existente, conferir o schema de destino explicitamente antes de escrever o
+`SELECT` de origem, e preferir `MERGE INTO` a `append` sempre que a célula
+puder ser reexecutada isoladamente do restante do notebook, não assumir
+ordem de execução como garantia de correção.
