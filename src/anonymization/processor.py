@@ -1,4 +1,5 @@
 import os
+import re
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -13,7 +14,13 @@ SALT = os.getenv("SALT_ANONIMIZACAO")
 
 
 def anonymize_file(filepath: str, config: ColumnConfig, output_dir: str) -> str:
-    """Lê um arquivo, aplica anonimização e salva o resultado"""
+    """Lê um arquivo, identifica o período de referência pelo nome, aplica anonimização e salva o resultado"""
+
+    #identificação do período de referência pelo nome do arquivo
+    match_ano_mes = re.search(r"(\d{4})_(\d{2})", filepath)
+    if match_ano_mes is None:
+        raise ValueError(f"Não foi possível extrair ano_mes do nome do arquivo: {filepath}")
+    ano_mes = f"{match_ano_mes.group(1)}-{match_ano_mes.group(2)}"
     
     #verifica se o salt foi carregado do .env
     if SALT is None:
@@ -24,6 +31,9 @@ def anonymize_file(filepath: str, config: ColumnConfig, output_dir: str) -> str:
         df = pd.read_csv(filepath, encoding="latin-1", sep=";")
     else:
         df = pd.read_excel(filepath)
+
+    #adiciona a coluna de período de referência, extraída do nome do arquivo
+    df["ano_mes"] = ano_mes
 
     #se a config sinalizar, enriquece com a taxa de conversão curada do outro projeto
     if config.enrich_conversao_curada:
@@ -46,7 +56,7 @@ def anonymize_file(filepath: str, config: ColumnConfig, output_dir: str) -> str:
             df = generalize_birth_date(df, col)
     
     #nome do arquivo de saída
-    filename = f'{config.name}_anonimizado.csv'
+    filename = f'{config.name}_{ano_mes.replace("-", "_")}_anonimizado.csv'
     #junta pasta de saída com nome do arquivo
     output_path = os.path.join(output_dir, filename)
     #salva arquivo como csv

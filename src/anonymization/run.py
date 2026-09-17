@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 
 from src.anonymization.config import ANONYMIZATION_CONFIGS
 from src.anonymization.processor import anonymize_file
@@ -27,13 +28,23 @@ def main():
 
     #extrai a nome do arquivo sem a extensão convertendo para minúscula
     for file in files:
-        name = file.rsplit(".", 1)[0].lower()
-        #o nome do arquivo na pasta precisa ser igual ao definido nas configurações
+        name_completo = file.rsplit(".", 1)[0].lower()
+
+        #separa o nome-base do sufixo de período (AAAA-MM) para casar com a config
+        match_nome = re.match(r"^(.+)_\d{4}_\d{2}$", name_completo)
+        if match_nome is None:
+            print(f"Nome de arquivo fora do padrão esperado (nome_AAAA_MM): {file}. Pulando...")
+            continue
+        name = match_nome.group(1)
+
+        #o nome-base do arquivo na pasta precisa ser igual ao definido nas configurações
         config = find_config(name)
+
         #caso não encontre o arquivo com o nome correto segue para o próximo
         if config is None:
             print(f"Configuração não encontrada para: {file}. Pulando...")
             continue
+
         #quando arquivo é encontrado chama anonimização e imprime resultado
         filepath = os.path.join(input_dir, file)
         output = anonymize_file(filepath, config, output_dir)

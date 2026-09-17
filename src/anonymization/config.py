@@ -13,13 +13,10 @@ ANONYMIZATION_CONFIGS: list[ColumnConfig] = [
     ColumnConfig(
         name="atendimento_emergencia",
         hash_columns=[
-            "CD_PACIENTE",
-            "CD_ATENDIMENTO",
             "PRESTADOR",
             "USUARIO_CLASSIF",
             "USUARIO_CAD_RECEPCAO",
             "USUARIO_ALTA",
-            "atend_internacao",
         ],
         drop_columns=[
             "NM_PACIENTE",
@@ -37,8 +34,6 @@ ANONYMIZATION_CONFIGS: list[ColumnConfig] = [
     ColumnConfig(
         name="internacoes",
         hash_columns=[
-            "COD_PACIENTE",
-            "ATENDIMENTO",
             "CD_PRESTADOR",
             "PRESTADOR",
         ],
@@ -50,7 +45,6 @@ ANONYMIZATION_CONFIGS: list[ColumnConfig] = [
     ColumnConfig(
         name="movimentacoes",
         hash_columns=[
-            "Atend.",
             "Paciente",
         ],
         drop_columns=[
@@ -61,8 +55,6 @@ ANONYMIZATION_CONFIGS: list[ColumnConfig] = [
     ColumnConfig(
         name="cirurgias",
         hash_columns=[
-            "CD_PACIENTE",
-            "ATENDIMENTO",
             "CD_AVISO_CIRURGIA",
             "CIRURGIAO_01",
             "CIRURGIAO_02",
@@ -84,9 +76,6 @@ ANONYMIZATION_CONFIGS: list[ColumnConfig] = [
     ColumnConfig(
         name="exames_imagem",
         hash_columns=[
-            "CD_ATENDIMENTO",
-            "CD_PRONTUARIO",
-            "NUMERO_ATENDIMENTO",
             "MEDICO_EXECUTANTE",
             "MEDICO_LAUDO_DEFINITIVO",
             "MEDICO_LAUDO_DITADO",
@@ -105,8 +94,6 @@ ANONYMIZATION_CONFIGS: list[ColumnConfig] = [
     ColumnConfig(
         name="atendimentos_box",
         hash_columns=[
-            "CD_PACIENTE",
-            "CD_ATENDIMENTO",
         ],
         drop_columns=[
             "NM_PACIENTE",
@@ -116,7 +103,6 @@ ANONYMIZATION_CONFIGS: list[ColumnConfig] = [
     ColumnConfig(
         name="altas",
         hash_columns=[
-            "ATENDIMENTO",
             "PREST_ADMISSAO",
             "PRESC_MED",
             "PREST_ALTA",
@@ -131,8 +117,6 @@ ANONYMIZATION_CONFIGS: list[ColumnConfig] = [
     ColumnConfig(
         name="epidemio",
         hash_columns=[
-            "prontuario",
-            "atendimento",
             "crm_prestador",
             "medico_sumario_alta",
             "cod_conselho",
@@ -159,7 +143,6 @@ ANONYMIZATION_CONFIGS: list[ColumnConfig] = [
     ColumnConfig(
         name="exames_laboratoriais_limpo",
         hash_columns=[
-            "ATEND",
         ],
         drop_columns=[
             "NM_PACIENTE",
@@ -169,7 +152,6 @@ ANONYMIZATION_CONFIGS: list[ColumnConfig] = [
     ColumnConfig(
         name="movimentacoes_limpo",
         hash_columns=[
-            "ATEND",
         ],
         drop_columns=[
             "NM_PACIENTE"
