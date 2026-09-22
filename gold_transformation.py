@@ -22,6 +22,19 @@
 # = quando o caso aconteceu". `data_referencia` resolve os dois problemas na
 # origem, uma vez, em vez de cada notebook consumidor reimplementar sua própria
 # lógica de correção.
+#
+# ATUALIZAÇÃO (22/09/2026, resolve ADR-0018): `ano_mes` em todas as 7 fontes
+# gold_events_* deixa de ser recalculado por `F.date_format(timestamp, ...)`
+# (mês do timestamp de cada evento individual) e passa a propagar direto a
+# coluna `ano_mes` já existente na Silver — originada do nome do arquivo na
+# anonimização (ver ADR-0018), representando o mês do LOTE de ingestão, não
+# o mês de cada evento pontual. O cálculo por timestamp permitia que um
+# único caso de um mês "vazasse" fragmentos para gold_event_log em meses
+# vizinhos (ex: "Aviso de Cirurgia" registrado semanas antes do procedimento),
+# contaminando qualquer filtro de ano_mes que dependesse de contagem de
+# meses distintos na tabela (caso real: notebook de Process Mining lendo
+# esses fragmentos como se fossem histórico real). A propagação da coluna
+# de lote elimina essa contaminação na origem.
 # =============================================================================
 
 import dlt
@@ -39,7 +52,7 @@ from pyspark.sql.window import Window
 )
 def gold_events_movimentacoes():
 
-    # leitura da tabela silver movimentacoes
+    # leitura da tabela silver movimentacoes — já traz ano_mes de lote (ADR-0018)
     df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_movimentacoes")
 
     # deduplica eventos de transferência — TRANSFER. DE e TRANSFER. PARA
@@ -79,7 +92,7 @@ def gold_events_movimentacoes():
     df = df.withColumn("resource", F.lit(None).cast("string"))
     df = df.withColumn("especialidade", F.lit(None).cast("string"))
     df = df.withColumn("source", F.lit("silver_movimentacoes"))
-    df = df.withColumn("ano_mes", F.date_format(F.col("timestamp"), "yyyy-MM"))
+    # ano_mes NÃO é recalculado aqui — a coluna de lote já veio da Silver (ADR-0018)
 
     # data pura de referência — DT_HR_MOVIMENTACAO é o único timestamp
     # disponível nesta fonte (DATA/HORA originais foram removidas no Silver),
@@ -101,7 +114,7 @@ def gold_events_movimentacoes():
 )
 def gold_events_internacoes():
 
-    # leitura da tabela silver internacoes
+    # leitura da tabela silver internacoes — já traz ano_mes de lote (ADR-0018)
     df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_internacoes")
 
     df = df.withColumnRenamed("UNIDADE", "location")
@@ -128,8 +141,8 @@ def gold_events_internacoes():
                       .select(
                           "case_id", "activity", "timestamp", "lifecycle",
                             "event_type", "case_type", "outcome", "resource",
-                            "especialidade", "location", "source", "data_referencia",
-                            "case_id_jornada"
+                            "especialidade", "location", "source", "ano_mes",
+                            "data_referencia", "case_id_jornada"
                         )
     
     # cria a tabela com data e hora da alta
@@ -140,12 +153,12 @@ def gold_events_internacoes():
                 .select(
                     "case_id", "activity", "timestamp", "lifecycle",
                     "event_type", "case_type", "outcome", "resource",
-                    "especialidade", "location", "source", "data_referencia",
-                    "case_id_jornada"
+                    "especialidade", "location", "source", "ano_mes",
+                    "data_referencia", "case_id_jornada"
                     )
     # captura o resultado do union antes de retornar
     df_resultado = df_internacao.unionByName(df_alta)
-    df_resultado = df_resultado.withColumn("ano_mes", F.date_format(F.col("timestamp"), "yyyy-MM"))
+    # ano_mes já vem íntegro dos dois sub-DataFrames — não recalculado
 
     return df_resultado
 
@@ -156,7 +169,7 @@ def gold_events_internacoes():
 )
 def gold_events_altas():
 
-    # leitura da tabela silver_altas
+    # leitura da tabela silver_altas — já traz ano_mes de lote (ADR-0018)
     df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_altas")
 
     # renomeia a coluna de unidade
@@ -186,8 +199,8 @@ def gold_events_altas():
                            .select(
                                "case_id", "activity", "timestamp", "lifecycle",
                                "event_type", "case_type", "outcome", "resource",
-                               "especialidade", "location", "source", "data_referencia",
-                               "case_id_jornada"
+                               "especialidade", "location", "source", "ano_mes",
+                               "data_referencia", "case_id_jornada"
                            )
     
     # cria o DataFrame de alta médica
@@ -197,8 +210,8 @@ def gold_events_altas():
                        .select(
                            "case_id", "activity", "timestamp", "lifecycle",
                             "event_type", "case_type", "outcome", "resource",
-                            "especialidade", "location", "source", "data_referencia",
-                            "case_id_jornada"
+                            "especialidade", "location", "source", "ano_mes",
+                            "data_referencia", "case_id_jornada"
                        )
     
     # cria o DataFrame de alta hospitalar
@@ -208,13 +221,13 @@ def gold_events_altas():
                            .select(
                                "case_id", "activity", "timestamp", "lifecycle",
                                 "event_type", "case_type", "outcome", "resource",
-                                "especialidade", "location", "source", "data_referencia",
-                                "case_id_jornada"
+                                "especialidade", "location", "source", "ano_mes",
+                                "data_referencia", "case_id_jornada"
                            )
     
     # seleciona apenas as colunas do schema canônico na ordem correta
     df_result = df_prescricao_alta.unionByName(df_alta_medica).unionByName(df_alta_hospitalar)
-    df_result = df_result.withColumn("ano_mes", F.date_format(F.col("timestamp"), "yyyy-MM"))
+    # ano_mes já vem íntegro dos três sub-DataFrames — não recalculado
     return df_result
 
 @dlt.table(
@@ -223,7 +236,7 @@ def gold_events_altas():
 )
 def gold_events_cirurgias():
 
-    # leitura da tabela silver_cirurgias
+    # leitura da tabela silver_cirurgias — já traz ano_mes de lote (ADR-0018)
     df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_cirurgias")
 
     # renomeia a coluna de sala cirúrgica
@@ -280,15 +293,15 @@ def gold_events_cirurgias():
                       .select(
                           "case_id", "activity", "timestamp", "lifecycle",
                           "event_type", "case_type", "outcome", "resource",
-                          "especialidade", "location", "source", "data_referencia",
-                          "case_id_jornada"
+                          "especialidade", "location", "source", "ano_mes",
+                          "data_referencia", "case_id_jornada"
                         ) 
         if df_resultado is None:
             df_resultado = df_evento
         else:
             df_resultado = df_resultado.unionByName(df_evento)
     
-    df_resultado = df_resultado.withColumn("ano_mes", F.date_format(F.col("timestamp"), "yyyy-MM"))
+    # ano_mes já vem íntegro de cada df_evento — não recalculado
     return df_resultado
 
 @dlt.table(
@@ -297,7 +310,7 @@ def gold_events_cirurgias():
 )
 def gold_events_emergencia():
 
-    # leitura da tabela silver_emergencia
+    # leitura da tabela silver_emergencia — já traz ano_mes de lote (ADR-0018)
     df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_atendimento_emergencia")
 
     # renomeia a coluna local de procedencia
@@ -344,15 +357,15 @@ def gold_events_emergencia():
                       .select(
                           "case_id", "activity", "timestamp", "lifecycle",
                           "event_type", "case_type", "outcome", "resource",
-                          "especialidade", "location", "source", "data_referencia",
-                          "case_id_jornada"
+                          "especialidade", "location", "source", "ano_mes",
+                          "data_referencia", "case_id_jornada"
                         )
         if df_resultado is None:
             df_resultado = df_evento
         else:
             df_resultado = df_resultado.unionByName(df_evento)
     
-    df_resultado = df_resultado.withColumn("ano_mes", F.date_format(F.col("timestamp"), "yyyy-MM"))
+    # ano_mes já vem íntegro de cada df_evento — não recalculado
     return df_resultado
 
 @dlt.table(
@@ -361,7 +374,7 @@ def gold_events_emergencia():
 )
 def gold_events_exames_imagem():
 
-    # leitura da tabela silver_exames_imagem
+    # leitura da tabela silver_exames_imagem — já traz ano_mes de lote (ADR-0018)
     df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_exames_imagem")
 
     # verifica correspondência de exames de imagem na emergência
@@ -422,8 +435,8 @@ def gold_events_exames_imagem():
                        .select(
                            "case_id", "activity", "timestamp", "lifecycle",
                           "event_type", "case_type", "outcome", "resource",
-                          "especialidade", "location", "source", "data_referencia",
-                          "case_id_jornada"
+                          "especialidade", "location", "source", "ano_mes",
+                          "data_referencia", "case_id_jornada"
                        )
         
         if df_resultado is None:
@@ -431,7 +444,7 @@ def gold_events_exames_imagem():
         else:
             df_resultado = df_resultado.unionByName(df_eventos)
     
-    df_resultado = df_resultado.withColumn("ano_mes", F.date_format(F.col("timestamp"), "yyyy-MM"))
+    # ano_mes já vem íntegro de cada df_eventos — não recalculado
     return df_resultado
 
 @dlt.table(
@@ -440,7 +453,7 @@ def gold_events_exames_imagem():
 )
 def gold_events_exames_laboratoriais():
 
-    # leitura da tabela silver_exames_laboratoriais
+    # leitura da tabela silver_exames_laboratoriais — já traz ano_mes de lote (ADR-0018)
     df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_exames_laboratoriais")
 
     # verifica correspondência de exames laboratoriais na emergência
@@ -485,8 +498,8 @@ def gold_events_exames_laboratoriais():
                       .select(
                           "case_id", "activity", "timestamp", "lifecycle",
                           "event_type", "case_type", "outcome", "resource",
-                          "especialidade", "location", "source", "data_referencia",
-                          "case_id_jornada"
+                          "especialidade", "location", "source", "ano_mes",
+                          "data_referencia", "case_id_jornada"
                       )
         
         if df_resultado is None:
@@ -494,7 +507,7 @@ def gold_events_exames_laboratoriais():
         else:
             df_resultado = df_resultado.unionByName(df_evento)
     
-    df_resultado = df_resultado.withColumn("ano_mes", F.date_format(F.col("timestamp"), "yyyy-MM"))
+    # ano_mes já vem íntegro de cada df_evento — não recalculado
     return df_resultado
                       
 @dlt.table(
