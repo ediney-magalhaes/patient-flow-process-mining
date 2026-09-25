@@ -75,6 +75,14 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   (grafo de fluxo panorâmico) via Custom Viz Vega-Lite; datasets:
   `cards_gargalos_macro`, `ranking_gargalos_chart`,
   `heatmap_performance_spectrum`, `dfg_arestas`
+- ADR-0019: modelo de referência para Conformance Checking, ano anterior
+  fechado como referência normativa, com fallback incremental para
+  histórico parcial e self-referential para ausência total de histórico;
+  checagem de disponibilidade feita por fonte, não globalmente
+- `src/utils/consultar_databricks.py`: utilitário de consulta direta ao
+  SQL Warehouse via terminal local (`databricks-sql-connector`), reduz
+  dependência da interface web para verificação de dados durante o
+  desenvolvimento
 
 #### Corrigido
 
@@ -113,6 +121,29 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   divergente (faltavam `especialidade` e `tempo_mediano_min`) corrigidos
   na linha de exceção "Alta da Emergência → Fim" de `gold_dfg_macro` —
   substituída por `MERGE INTO` na chave `(ano_mes, de, para)`
+- ADR-0017: número de atendimento (`CD_ATENDIMENTO` e equivalentes por
+  base) deixou de ser hasheado nas configs de anonimização, reidentificação
+  via HIS aceita como risco de modelo de ameaça, resolve inviabilidade de
+  reaproveitamento entre projetos que compartilham a mesma origem de dado
+- RQ-013: `atend_internacao` permaneceu hasheada em `config.py` após a
+  remoção de hash de `CD_ATENDIMENTO` (ADR-0017), quebrava o join central
+  de `gold_patient_journey` contra `CD_INTERNACAO`, já sem hash; corrigida
+  removendo `atend_internacao` de `hash_columns` em `atendimento_emergencia`
+- ADR-0018: origem de `ano_mes` em `gold_event_log` migrada de timestamp de
+  evento (`F.date_format`) para propagação da coluna de lote já existente
+  na Silver, eliminada contaminação por fragmentos de mês causada por
+  eventos administrativos com timestamp fora da fronteira do lote de
+  ingestão (ex: `Aviso de Cirurgia` registrado semanas antes do procedimento)
+- RQ-014: checagem de disponibilidade de histórico na Conformance
+  Checking era global (toda `gold_event_log`, sem filtro de `source`) 
+  fragmentos residuais da contaminação de `ano_mes` (ver ADR-0018) faziam 4
+  das 7 fontes receberem log de referência vazio, produzindo fitness e
+  precision artificiais (exatamente 1.0); corrigida movendo a checagem para
+  dentro do laço por fonte (ADR-0019)
+- Reprocessamento completo de março/2026 exigido pelas correções acima:
+  9 arquivos anonimizados regenerados localmente, Bronze dropada e
+  reingerida (8 tabelas), Silver e Gold com Full Refresh, notebook de
+  Process Mining reexecutado do início
 
 #### Sprint 3 — Process Mining (concluído)
 
@@ -313,7 +344,8 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - Página 2 — Gargalos → cards de duração macro + ranking top gargalos + heatmap dia-da-semana + DFG (grafo de fluxo panorâmico) → fontes: `gold_patient_journey` + `gold_bi_jornada` + `gold_bottleneck` + `gold_performance_spectrum` + `gold_dfg_macro` — ~~concluída~~
   - **Pendência técnica resolvida (15/09/2026):** o DFG não foi embutido como imagem estática via networkx/matplotlib, como cogitado originalmente, implementado como Custom Viz Vega-Lite nativo do AI/BI Dashboard, consumindo `gold_dfg_macro` diretamente via SQL. Decisão completa em ADR-0016.
   - **Pendência técnica não resolvida:** viabilidade de embutir o DFG (renderizado via networkx/matplotlib, mesmo padrão usado no SNA) como imagem estática dentro do AI/BI Dashboard ainda não validada, Databricks AI/BI não executa Python nativamente. Primeira tarefa da construção desta página, não decisão fechada.
-- Página 3 — Conformidade → fitness/precision por fonte, tendência por `ano_mes` → fonte: `gold_conformance` *(corrigido — roadmap anterior apontava incorretamente para `gold_patient_journey`)*
+- Página 3 — Conformidade → fitness/precision por fonte, tendência por `ano_mes` → fonte: `gold_conformance` *(corrigido, roadmap anterior apontava incorretamente para `gold_patient_journey`)* — **em andamento**: filtros de Período (multi-select) e Processo já criados; dataset `conformance_tendencia` e os dois gráficos de tendência pendentes
+  - **Correção de arquitetura (22/09/2026):** metodologia de Conformance Checking revisada de self-referential (modelo descoberto do próprio mês testado) para modelo de referência separado (ano anterior fechado, com fallback), motivada pela construção desta página — ver ADR-0019 e RQ-014
 - Página 4 — Handover / SNA → sociograma setor↔setor (grafo, `gold_sna_handover` #1) + ranking de subcontracting por especialidade (`gold_sna_subcontracting` #3) → fontes: `gold_sna_handover` + `gold_sna_subcontracting` *(corrigido — roadmap anterior apontava incorretamente para `gold_events_emergencia`, tabela bruta)*
 - Página 5 (nova) — Variantes de Processo → ranking + gráfico de Pareto (frequência + % cobertura acumulada) → fonte: `gold_variant_analysis`
 - **Fora do escopo do Dashboard, decisão consciente:** `gold_data_quality` — tabela de governança de dado (cobertura de timestamp), audiência de TI/operação, não de gestão executiva. Sem tabela nova nem página alocada; revisar escopo se a diretoria pedir explicitamente.

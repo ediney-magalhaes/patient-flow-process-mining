@@ -162,6 +162,12 @@ local executado no ambiente do hospital.
 - Defense-in-depth: dado anonimizado na origem é o padrão mais seguro
 - Permite reuso do dataset anonimizado em outros contextos sem reanonimizar
 - Independe de funcionalidades específicas da plataforma
+**Atualização (22/09/2026, ADR-0017):** identificadores de atendimento
+(número de atendimento e equivalentes por base) deixaram de ser hasheados, 
+tratados como identificador operacional, não PII direta, para viabilizar
+reaproveitamento de dado entre projetos que compartilham a mesma origem.
+Demais PII (nome, CPF, endereço, profissionais envolvidos) continuam
+anonimizados normalmente.
 📖 **ADR:** [docs/02-architecture/adr/0005-local-anonymization.md](docs/02-architecture/adr/0005-local-anonymization.md)
  
 ### 3.5 Pipeline declarativo vs. notebooks puros ✅ Decidido
@@ -230,6 +236,8 @@ Free Edition. Alternativa: deploy manual ou scripts via REST API.
 - Metadata de ingestão (`_ingestion_timestamp`, `_source_file`)
 - Column Mapping habilitado para tabelas com caracteres especiais nos nomes de colunas
 - Ingestão via Auto Loader com checkpoint por tabela
+- Coluna `ano_mes` (formato `yyyy-MM`) extraída do nome do arquivo de
+  origem na anonimização local, propagada desde a Bronze (ADR-0018)
 
 ### 4.2 Camada Silver
 
@@ -262,11 +270,12 @@ Free Edition. Alternativa: deploy manual ou scripts via REST API.
 | `gold_data_quality` | 1 linha por fonte+atividade | Cobertura de timestamps por atividade e por caso | ✅ Sprint 2 |
 | `gold_variant_analysis` | 1 linha por variante | Ranking de variantes de processo por frequência | ✅ Sprint 3 |
 | `gold_bottleneck` | 1 linha por transição × período | Tempos de transição entre atividades por setor | ✅ Sprint 3 |
-| `gold_conformance` | 1 linha por fonte × período | Fitness e precisão por setor | ✅ Sprint 3 |
+| `gold_conformance` | 1 linha por fonte × período | Fitness e precisão do mês testado contra modelo de referência (ano anterior fechado, com fallback — ADR-0019) | ✅ Sprint 3, metodologia revisada Sprint 4 |
 | `gold_sna_handover` | 1 linha por handover × período | Fluxos de encaminhamento entre setores | ✅ Sprint 3 |
 | `gold_sna_subcontracting` | 1 linha por padrão A→B→A × período | Delegações temporárias entre setores | ✅ Sprint 3 |
 | `gold_performance_spectrum` | 1 linha por transição × mês × dia | Variação temporal do desempenho do processo | ✅ Sprint 3 |
 | `gold_patient_journey` | 1 linha por episódio completo | Jornada cross-source do paciente — 6 tipos de jornada com vocabulário de negócio (ADR-0014), conversão emergência→internação curada via BigQuery (ADR-0012, ADR-0013) | ✅ Sprint 4 |
+| `gold_dfg_macro` | 1 linha por transição × mês × especialidade | Grafo de fluxo panorâmico (DFG), 15 marcos curados manualmente, alimenta a Página 2 do Dashboard (ADR-0016) | ✅ Sprint 4 |
 
 📖 **Dicionário completo:** [docs/03-data/data-dictionary.md](docs/03-data/data-dictionary.md)
   
@@ -356,5 +365,5 @@ hospital_santa_rosa          (catalog)
 - [C4 Model](https://c4model.com/)
 ---
  
-**Última atualização:** 13/08/2026 • **Sprint atual:** 4 — Entregáveis (Fase 2 em andamento — Página 1 do Dashboard concluída) •
+**Última atualização:** 22/09/2026 • **Sprint atual:** 4 — Entregáveis (Fase 2 em andamento, Páginas 1 e 2 do Dashboard concluídas e publicadas, Página 3 em construção) •
 **Mantenedor:** [Ediney Magalhães](https://github.com/ediney-magalhaes)

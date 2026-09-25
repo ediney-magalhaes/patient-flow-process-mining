@@ -94,7 +94,7 @@ e refinamento.
 | **Transformação** | Lakeflow Declarative Pipelines | ✅ Sprint 1 + Sprint 2 |
 | **Process Mining** | PM4Py | ✅ Sprint 3 |
 | **Governança** | Unity Catalog | ✅ Sprint 0 |
-| **BI** | AI/BI Dashboards | 🔄 Sprint 4 (Página 1 concluída) |
+| **BI** | AI/BI Dashboards | 🔄 Sprint 4 (Páginas 1 e 2 concluídas, Página 3 em construção) |
 | **App** | Streamlit | 🔲 Sprint 4 |
 | **CI/CD** | GitHub Actions | 🔲 Sprint 5 |
 | **Documentação** | MkDocs Material + GitHub Pages | 🔲 Sprint 5 |
@@ -108,15 +108,17 @@ e refinamento.
 - [x] **Sprint 1** — Bronze + Silver: ingestão e limpeza dos dados (8 tabelas Bronze + 8 tabelas Silver concluídas)
 - [x] **Sprint 2** — Gold: event log canônico no padrão XES (9 tabelas Gold, 190K eventos)
 - [x] **Sprint 3** — Process Mining: descoberta de processos, variantes, gargalos, conformidade, SNA e performance spectrum (5 tabelas Gold, XES exportado)
-- [ ] **Sprint 4** — Entregáveis: dashboard executivo (AI/BI + Genie Space), app interativo (Databricks App) — Fase 1 concluída (`gold_patient_journey`), Fase 2 em andamento (Página 1 do Dashboard concluída e publicada)
+- [ ] **Sprint 4** — Entregáveis: dashboard executivo (AI/BI + Genie Space), app interativo (Databricks App) — Fase 1 concluída (`gold_patient_journey`), Fase 2 em andamento (Páginas 1 e 2 do Dashboard concluídas e publicadas, Página 3 — Conformidade — em construção)
 - [ ] **Sprint 5** — CI/CD, documentação completa, apresentação executiva
 ## Dados e Privacidade (LGPD)
  
 Este projeto utiliza dados reais de um hospital brasileiro. Para garantir 
 conformidade com a Lei Geral de Proteção de Dados:
  
-- Identificadores diretos (nome, CPF, prontuário) são substituídos por hash 
-  SHA-256 **antes** de qualquer upload para a nuvem
+- Identificadores diretos (nome, CPF) são substituídos por hash SHA-256 
+  **antes** de qualquer upload para a nuvem; números de atendimento são 
+  tratados como identificador operacional, não PII direta, e permanecem 
+  em texto puro para viabilizar reaproveitamento entre projetos (ADR-0017)
 - Apenas campos necessários para análise de fluxo são utilizados
 - A plataforma Databricks adiciona camadas extras de governança (controle de 
   acesso, auditoria, lineage)

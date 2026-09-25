@@ -3,6 +3,7 @@
 - **Status:** aceito
 - **Data:** 2026-09-15
 - **Decisores:** Ediney Magalhães
+- **Última atualização:** 2026-09-22 (propagação da coluna de lote até `gold_event_log` implementada, a pendência descrita originalmente na seção Consequências está resolvida)
 
 ---
 
@@ -29,7 +30,13 @@ Em `src/anonymization/processor.py`, `anonymize_file` extrai `ano_mes` do `filep
 
 Em `src/anonymization/run.py`, a busca de configuração por nome de arquivo (`find_config`) passou a separar o sufixo de período do nome-base antes de comparar contra `ANONYMIZATION_CONFIGS` (via `re.match(r"^(.+)_\d{4}_\d{2}$", ...)`), as 10 configs continuam com `name` fixo, sem data, evitando que precisem ser editadas a cada mês.
 
-Esta coluna nova (`ano_mes` de lote, com origem no nome do arquivo) e a coluna existente em `gold_event_log` (`ano_mes` por timestamp de evento) passam a coexistir com propósitos distintos — nomenclatura final e resolução de eventual conflito de nome entre as duas ficam como pendência a resolver na propagação Bronze → Silver → Gold, fora do escopo desta ADR.
+### Propagação até `gold_event_log` (implementada em 22/09/2026)
+
+A coluna de lote chega íntegra até a Silver desde a implementação original desta ADR, mas as 7 funções `gold_events_*` em `gold_transformation.py` continuavam recalculando `ano_mes` por timestamp de evento (`F.date_format(F.col("timestamp"), "yyyy-MM")`), ignorando a coluna de lote já disponível em `df` desde a leitura da Silver. Isso não era um risco teórico: a contaminação por fragmento de mês, sem correção, causou um bug real na Página 3 do Dashboard (ver ADR-0019) — a lógica de determinação de período de referência do notebook de Conformance usava `distinct ano_mes` sobre `gold_event_log` para decidir se existia histórico disponível, e os fragmentos residuais dessa contaminação foram lidos como se fossem meses de ingestão reais.
+
+Correção aplicada nas 7 funções: a coluna `ano_mes` de `df` (lida da Silver) passa a ser preservada nos `.select(...)` intermediários de cada sub-DataFrame de evento, e a linha que recalculava por `F.date_format` foi removida. `gold_events_movimentacoes` (única função sem `.select()` intermediário nem `unionByName`) teve só a linha de recálculo removida. `gold_patient_journey` não foi tocada — seu `ano_mes` já é derivado por caso via `DT_ATENDIMENTO` (RQ-009), não sofre desta limitação.
+
+Reprocessamento completo exigido após a correção: `gold_transformations` (Full Refresh) e, em seguida, o notebook `03_process_mining.ipynb` (que lê `gold_event_log` para uma variável em memória, `event_log`, que não se atualiza sozinha quando a tabela muda no Unity Catalog).
 
 ## Alternativas consideradas
 
@@ -41,4 +48,4 @@ Ver as quatro alternativas descartadas na seção Contexto, com a justificativa 
 - `data/anonymized` precisou ser limpa e regenerada, nomes de saída antigos (sem período) não coincidem com os novos, os dois conjuntos coexistiriam sem sobrescrita automática.
 - Reingestão completa exigida: tabelas Bronze dropadas, checkpoints do Auto Loader limpos (Auto Loader rastreia por caminho de arquivo, um arquivo com nome novo não é reconhecido como "já processado", mas também não substitui a linha antiga automaticamente; sem dropar a tabela, o resultado seria duplicação de volume, não correção).
 - Toda ingestão mensal futura depende, a partir de agora, do nome do arquivo seguir o padrão exato, se um arquivo for renomeado sem esse sufixo, ou o padrão mudar sem atualizar o regex de extração, a anonimização falha explicitamente (por design), não silenciosamente.
-- `gold_event_log.ano_mes` continua com a limitação descrita no Contexto até que a propagação da nova coluna seja implementada, fora do escopo desta ADR, registrado como pendência.
+- `gold_event_log.ano_mes` agora reflete o mês do lote de ingestão em todas as 7 fontes `gold_events_*`, íntegro, sem fragmentos residuais de outros meses, confirmado por consulta direta pós-correção (`select ano_mes, count(*) from gold_event_log group by ano_mes` retornando uma única linha, `2026-03`).

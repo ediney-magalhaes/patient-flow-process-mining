@@ -11,6 +11,12 @@ Dados brutos ingeridos via Auto Loader, preservados como vieram da origem.
 Todas as tabelas incluem as colunas de metadados `_ingestion_timestamp`, 
 `_source_file` e `_rescued_data`.
 
+**Nota (ADR-0018):** desde a correção de origem de `ano_mes`, as 8 tabelas
+Bronze também carregam a coluna `ano_mes` (formato `yyyy-MM`), extraída do
+nome do arquivo de origem no momento da anonimização local, não é metadado
+de ingestão como as três colunas acima, é uma coluna de negócio propagada
+desde a origem.
+
 ### bronze_altas_raw
 
 - **Schema:** `hospital_santa_rosa.bronze_fluxo`
@@ -256,7 +262,7 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 | `especialidade` | string | nullable | Especialidade médica associada ao evento. Cobertura e coluna de origem variam por fonte (ver ADR-0008 e RQ-002) |
 | `location` | string | nullable | Unidade ou sala onde o evento ocorreu |
 | `source` | string | obrigatório | Tabela Silver de origem do evento |
-| `ano_mes` | string | obrigatório | Mês de referência do evento no formato `yyyy-MM` — âncora temporal para séries históricas e filtros mensais |
+| `ano_mes` | string | obrigatório | Mês do **lote de ingestão** no formato `yyyy-MM`, propagado desde a Silver (ADR-0018), não recalculado por timestamp de evento. Âncora temporal para séries históricas e filtros mensais |
 
 ### gold_events_movimentacoes
 
@@ -344,10 +350,13 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
   `gold_events_cirurgias`, `gold_events_emergencia`, `gold_events_exames_imagem`,
   `gold_events_exames_laboratoriais`
 - **Volume referência:** 190K registros (mar/2026)
-- **Colunas adicionais:** `ano_mes` — herdada via `unionByName` das sete tabelas
-  `gold_events_*`; `duration_minutes` — duração total do caso em minutos,
-  calculada via Window function particionada por `case_id`
-- **Nota:** tabela central do projeto — fonte primária para análises de Process Mining
+- **Colunas adicionais:** `ano_mes`, herdada via `unionByName` das sete tabelas
+  `gold_events_*`, cada uma propagando o mês do lote de ingestão desde a
+  Silver, não mais recalculado por timestamp de evento (ADR-0018, corrigido
+  22/09/2026, antes desta data, a coluna sofria contaminação por eventos
+  cujo timestamp caía em mês diferente do lote de origem); `duration_minutes`,
+  duração total do caso em minutos, calculada via Window function particionada por `case_id`
+- **Nota:** tabela central do projeto, fonte primária para análises de Process Mining
   com PM4Py no Sprint 3
 
 ### gold_case_attributes
@@ -486,19 +495,36 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 ### gold_conformance
 
 - **Descrição:** Métricas de conformidade do processo por fonte e período,
-  medindo fitness e precisão em relação ao modelo descoberto.
+  medindo fitness e precisão do mês testado contra um modelo de referência
+  descoberto separadamente (não mais o próprio mês testado, ver ADR-0019).
 - **Granularidade:** Uma linha por source × ano_mes.
 - **Origem:** `gold_event_log` (via notebook `03_process_mining.ipynb`)
+- **Decisão arquitetural:** ADR-0019 (modelo de referência com ano anterior
+  fechado, fallback incremental, checagem por fonte)
 - **Frequência de atualização:** Mensal
+- **Nota de metodologia:** o Process Tree usado para calcular fitness/precision
+  é descoberto a partir de um **período de referência**, o ano anterior
+  fechado (12 meses), ou, na ausência dele, todo o histórico disponível
+  antes do mês testado, ou, na ausência de qualquer histórico, o próprio
+  mês testado (único caso self-referential, usado só enquanto o projeto não
+  tiver ao menos um ano de histórico acumulado). Essa checagem é feita
+  individualmente por `source`, cada fonte pode ter disponibilidade de
+  histórico diferente das demais.
+- **Nota de persistência:** escrita via `overwrite` com
+  `option("replaceWhere", "ano_mes = '{mes_atual}'")`, reescreve só a
+  partição do mês corrente a cada execução, preservando meses já
+  persistidos anteriormente. Não usa `MERGE INTO` (diferente de
+  `gold_dfg_macro`) porque cada execução produz o lote inteiro de um mês,
+  não linhas isoladas por chave.
 - **Schema:** `hospital_santa_rosa.gold_fluxo`
 
 | Coluna | Tipo | Descrição | Nullable |
 |---|---|---|---|
 | source | string | Setor avaliado | Não |
-| fitness | double | Proporção de traces que seguem o modelo (0–1) | Não |
-| precision | double | Grau de especificidade do modelo (0–1) | Não |
-| total_traces | long | Total de casos avaliados | Não |
-| ano_mes | string | Período de referência no formato YYYY-MM | Não |
+| fitness | double | Proporção de traces do mês testado que seguem o modelo de referência (0–1) | Não |
+| precision | double | Grau de especificidade do modelo de referência (0–1) | Não |
+| total_traces | long | Total de casos do mês testado avaliados | Não |
+| ano_mes | string | Mês testado, no formato YYYY-MM (não o período de referência usado para descobrir o modelo) | Não |
 
 ### gold_sna_handover
 

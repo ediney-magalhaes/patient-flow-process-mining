@@ -491,3 +491,107 @@ existente, conferir o schema de destino explicitamente antes de escrever o
 `SELECT` de origem, e preferir `MERGE INTO` a `append` sempre que a célula
 puder ser reexecutada isoladamente do restante do notebook, não assumir
 ordem de execução como garantia de correção.
+
+
+## RQ-013 — `atend_internacao` permaneceu hasheada após remoção de hash de `CD_ATENDIMENTO`
+
+- **Tabela de origem:** `atendimento_emergencia` (config de anonimização)
+- **Campo afetado:** `atend_internacao`
+- **Data do achado:** 2026-09-15
+- **Contexto:** ADR-0017 (remoção de hash de identificadores de atendimento)
+
+### Achado
+
+Ao aplicar a ADR-0017 (remoção de hash de `CD_ATENDIMENTO` e equivalentes
+por base, para viabilizar reaproveitamento entre projetos), a coluna
+`atend_internacao` — cópia de `CD_INTERNACAO` de `silver_internacoes`,
+incorporada via `enrichment.py` durante o join com o BigQuery curado —
+permaneceu listada em `hash_columns` da config `atendimento_emergencia`.
+A remoção de hash foi aplicada em `CD_ATENDIMENTO`, mas não em
+`atend_internacao`, apesar das duas colunas precisarem bater entre si no
+join central de `gold_patient_journey` (`atend_internacao == CD_INTERNACAO`).
+
+Como `CD_INTERNACAO` (config `internacoes`) também teve seu hash removido
+na mesma ADR, o resultado seria duas colunas que deveriam ser idênticas
+para o mesmo caso — uma em texto puro (`CD_INTERNACAO`), outra ainda
+hasheada (`atend_internacao`), quebrando silenciosamente o join central
+da jornada do paciente.
+
+### Causa raiz
+
+A lista de colunas a corrigir na ADR-0017 foi montada olhando `config.py`
+por nome de coluna óbvio (`CD_ATENDIMENTO`, `ATENDIMENTO`, `ATEND`), sem
+mapear explicitamente colunas derivadas/calculadas que dependem da mesma
+decisão, `atend_internacao` não tem "atendimento" nem "atend" como nome
+que remetesse imediatamente à mesma categoria de identificador, na
+varredura inicial.
+
+### Decisão
+
+`atend_internacao` removida de `hash_columns` na config `atendimento_emergencia`.
+Reprocessamento completo desta base exigido (mesmo procedimento da ADR-0017:
+regenerar CSV local, subir ao Volume, dropar Bronze, limpar checkpoint,
+reingerir). Confirmado por consulta direta pós-correção: valores de
+`atend_internacao` em formato numérico reconhecível, compatível com
+`CD_INTERNACAO`.
+
+### Ação futura recomendada
+
+Ao remover hash de um identificador, mapear explicitamente qualquer coluna
+derivada dele (cópias, chaves de join calculadas) antes de considerar a
+correção completa, não basta buscar pelo nome da coluna original.
+
+## RQ-014 — Checagem de disponibilidade de histórico global, não por fonte, em `gold_conformance`
+
+- **Tabela de origem:** `gold_event_log` (via notebook `03_process_mining.ipynb`)
+- **Célula afetada:** determinação do período de referência na seção de
+  Conformance Checking
+- **Data do achado:** 2026-09-22
+- **Contexto:** ADR-0019 (modelo de referência para Conformance Checking)
+
+### Achado
+
+A primeira implementação da lógica de referência (ADR-0019) calculava a
+disponibilidade de histórico (`quantidade_meses_anterior`,
+`quantidade_meses_anteriores_qualquer`) uma única vez, fora do laço `for
+source in ...`, consultando `gold_event_log` sem filtro de `source`. Como
+existiam fragmentos residuais de contaminação de `ano_mes` (ver ADR-0018,
+não corrigida ainda no momento desta execução) em 3 das 7 fontes
+(`silver_altas`: 3 eventos, `silver_atendimento_emergencia`: 7,
+`silver_cirurgias`: 316), a checagem global via essa contaminação como
+"existe histórico disponível" e aplicava o mesmo `periodo_referencia` às 7
+fontes igualmente.
+
+As 4 fontes sem nenhum fragmento residual (`silver_exames_imagem`,
+`silver_exames_laboratoriais`, `silver_internacoes`, `silver_movimentacoes`)
+receberam log de referência **vazio** ao aplicar esse `periodo_referencia`.
+Descobrir um Process Tree a partir de um `EventLog` vazio produz um modelo
+degenerado; testar o log real do mês contra esse modelo produziu fitness e
+precision artificiais, exatamente 1.0 para as 4 fontes afetadas, valor que
+passou despercebido numa primeira leitura por parecer um resultado "bom",
+não um sintoma de erro.
+
+### Causa raiz
+
+A checagem de disponibilidade de histórico foi implementada pensando na
+tabela como uma unidade só, sem considerar que cada `source` pode ter
+disponibilidade de dado completamente diferente das demais, inclusive
+diferença criada artificialmente pela contaminação de `ano_mes` (ADR-0018),
+que não distribui fragmentos igualmente entre fontes.
+
+### Decisão
+
+A checagem de referência (as duas contagens e a decisão de
+`periodo_referencia`) movida para dentro do laço `for source in ...`, com
+`source` incluído em cada consulta SQL. Cada fonte passa a decidir sua
+própria disponibilidade de histórico de forma independente. Correção
+completa descrita em ADR-0019.
+
+### Ação futura recomendada
+
+Ao implementar lógica condicional que decide comportamento por fonte
+dentro de um pipeline com laço `for source`, sempre verificar se a
+condição em si também precisa ser avaliada por fonte, não só a ação
+tomada com base nela, uma condição calculada fora do laço, aplicada a
+resultados dentro do laço, é um padrão fácil de errar silenciosamente
+quando fontes têm disponibilidade de dado heterogênea.
