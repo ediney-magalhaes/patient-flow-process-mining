@@ -83,6 +83,13 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   SQL Warehouse via terminal local (`databricks-sql-connector`), reduz
   dependência da interface web para verificação de dados durante o
   desenvolvimento
+- Dashboard "Mapa Digital do Fluxo do Paciente", página "Conformidade"
+  (Página 3) concluída e publicada, 2 filtros globais (Período multi-select,
+  Processo single value), gráficos de linha de fitness e precision por
+  processo ao longo de `ano_mes` (eixo Y fixo de 0 a 1), texto explicativo
+  sobre a precision baixa e tabela comparativa por fonte com `total_traces`;
+  datasets: `conformance_tendencia`, `dim_periodo`; documentado em
+  `docs/06-deliverables/dashboard-conformidade.md`
 
 #### Corrigido
 
@@ -344,7 +351,7 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - Página 2 — Gargalos → cards de duração macro + ranking top gargalos + heatmap dia-da-semana + DFG (grafo de fluxo panorâmico) → fontes: `gold_patient_journey` + `gold_bi_jornada` + `gold_bottleneck` + `gold_performance_spectrum` + `gold_dfg_macro` — ~~concluída~~
   - **Pendência técnica resolvida (15/09/2026):** o DFG não foi embutido como imagem estática via networkx/matplotlib, como cogitado originalmente, implementado como Custom Viz Vega-Lite nativo do AI/BI Dashboard, consumindo `gold_dfg_macro` diretamente via SQL. Decisão completa em ADR-0016.
   - **Pendência técnica não resolvida:** viabilidade de embutir o DFG (renderizado via networkx/matplotlib, mesmo padrão usado no SNA) como imagem estática dentro do AI/BI Dashboard ainda não validada, Databricks AI/BI não executa Python nativamente. Primeira tarefa da construção desta página, não decisão fechada.
-- Página 3 — Conformidade → fitness/precision por fonte, tendência por `ano_mes` → fonte: `gold_conformance` *(corrigido, roadmap anterior apontava incorretamente para `gold_patient_journey`)* — **em andamento**: filtros de Período (multi-select) e Processo já criados; dataset `conformance_tendencia` e os dois gráficos de tendência pendentes
+- Página 3 — Conformidade → fitness/precision por fonte, tendência por `ano_mes` → fonte: `gold_conformance` *(corrigido, roadmap anterior apontava incorretamente para `gold_patient_journey`)* — ~~concluída e publicada~~ (ver `docs/06-deliverables/dashboard-conformidade.md`)
   - **Correção de arquitetura (22/09/2026):** metodologia de Conformance Checking revisada de self-referential (modelo descoberto do próprio mês testado) para modelo de referência separado (ano anterior fechado, com fallback), motivada pela construção desta página — ver ADR-0019 e RQ-014
 - Página 4 — Handover / SNA → sociograma setor↔setor (grafo, `gold_sna_handover` #1) + ranking de subcontracting por especialidade (`gold_sna_subcontracting` #3) → fontes: `gold_sna_handover` + `gold_sna_subcontracting` *(corrigido — roadmap anterior apontava incorretamente para `gold_events_emergencia`, tabela bruta)*
 - Página 5 (nova) — Variantes de Processo → ranking + gráfico de Pareto (frequência + % cobertura acumulada) → fonte: `gold_variant_analysis`
