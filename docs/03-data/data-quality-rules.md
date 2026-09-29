@@ -654,3 +654,46 @@ camadas e notebooks posteriores que a recalculam, e não só nas
 transformações da camada corrigida. Ao usar `pm4py.format_dataframe`,
 conferir o tipo das colunas extras após a chamada: strings com aparência
 de data podem ser convertidas silenciosamente para timestamp.
+
+
+
+## RQ-016 — Handover e Subcontracting calculados por `case_id`, sem enxergar a passagem Emergência → Internação
+
+- **Tabelas afetadas:** `gold_sna_handover`, `gold_sna_subcontracting`
+- **Célula afetada:** análises #1 (Handover) e #3 (Subcontracting) de `03_process_mining.ipynb`
+- **Data do achado:** 2026-09-29
+- **Contexto:** construção da Página 4 do Dashboard (Handover / SNA)
+
+### Achado
+
+O `gold_sna_handover` não continha nenhuma aresta `silver_atendimento_emergencia → silver_internacoes`, a passagem mais relevante da jornada hospitalar. As duas análises agrupavam eventos por `case:concept:name` (o `case_id` de cada caso), enquanto Bottleneck, Performance Spectrum e DFG usavam `case_id_jornada`, que atravessa as fontes.
+
+Verificação direta em `gold_event_log`:
+
+- 7.957 valores distintos de `case_id` contra 7.512 de `case_id_jornada` (diferença de 445);
+- 0 casos por `case_id` com eventos de Emergência e de Internação ao mesmo tempo, contra 445 jornadas por `case_id_jornada`;
+- nenhum `case_id` atravessa 6 ou 7 fontes; o `case_id_jornada` tem 215 jornadas com 6 fontes e 85 com 7.
+
+A diferença de 445 coincide exatamente com o número de jornadas que unem Emergência e Internação.
+
+### Causa raiz
+
+As análises de SNA foram implementadas antes da criação do `case_id_jornada` (ADR-0011/ADR-0014) e não foram revisadas quando as demais análises migraram para essa chave. O resultado parecia plausível (exames concentrando o volume), e por isso a ausência da aresta não chamou atenção.
+
+### Decisão
+
+Nas células #1 e #3, `case:concept:name` foi substituído por `case_id_jornada` (ordenação e agrupamento dos deslocamentos `shift`). Resultado após regravar as duas tabelas:
+
+- `gold_sna_handover`: 216 → 263 combinações; total de 13.123 transições em `2026-03` (o total de 12.609 registrado na RQ-015 era intermediário); aresta Emergência → Internação com 370 transições;
+- `gold_sna_subcontracting`: 64 → 72 combinações; o padrão dominante (Imagem → Emergência/ortopedia → Imagem, 127) não mudou.
+
+### Regras de leitura para o Dashboard
+
+- `source` identifica a **tabela de origem do evento**, não um setor físico. A aresta Altas → Internações (708) corresponde a "Alta médica", "Alta Hospitalar" ou "Prescricao de alta" seguidas de "Alta da Internacao" (581, 118 e 9), isto é, registros de alta do mesmo episódio em tabelas diferentes, e não uma internação após a alta.
+- Handover é a sucessão de eventos por horário dentro da jornada, não fluxo clínico direcional.
+- `especialidade` no handover é a do evento de destino; no subcontracting, a do setor intermediário.
+- O padrão A→B→A descreve uma sequência observada, e não prova delegação.
+
+### Ação futura recomendada
+
+Ao criar uma chave de caso nova, listar todas as análises que ainda usam a chave antiga e migrá-las. Antes de publicar uma rede de processos, conferir se as arestas esperadas pelo negócio existem.

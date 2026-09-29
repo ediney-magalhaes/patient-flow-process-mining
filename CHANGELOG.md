@@ -159,6 +159,13 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   (convertido de volta para texto `AAAA-MM`, pois o `pm4py.format_dataframe`
   o transforma em timestamp); apenas `gold_sna_handover` e
   `gold_sna_subcontracting` foram regravadas
+- RQ-016: handover (#1) e subcontracting (#3) de `03_process_mining.ipynb`
+  agrupavam eventos por `case_id` em vez de `case_id_jornada`, e por isso
+  `gold_sna_handover` não tinha a aresta Emergência → Internação (0 casos
+  por `case_id` com as duas fontes, contra 445 jornadas por
+  `case_id_jornada`); chave trocada nas duas análises e as tabelas
+  regravadas (handover: 216 → 263 combinações, 370 transições
+  Emergência → Internação; subcontracting: 64 → 72 combinações)
 
 #### Sprint 3 — Process Mining (concluído)
 
