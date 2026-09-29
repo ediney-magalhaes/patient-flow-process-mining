@@ -151,6 +151,14 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   9 arquivos anonimizados regenerados localmente, Bronze dropada e
   reingerida (8 tabelas), Silver e Gold com Full Refresh, notebook de
   Process Mining reexecutado do início
+- RQ-015: `ano_mes` recalculado a partir do timestamp de cada evento na
+  preparação do `df_formatado` (`03_process_mining.ipynb`), reintroduzindo
+  a contaminação já corrigida na Gold pela ADR-0018; `gold_sna_handover`
+  tinha 58 registros em `2026-04` com um único mês real de ingestão.
+  Corrigido preservando o `ano_mes` de lote vindo do `gold_event_log`
+  (convertido de volta para texto `AAAA-MM`, pois o `pm4py.format_dataframe`
+  o transforma em timestamp); apenas `gold_sna_handover` e
+  `gold_sna_subcontracting` foram regravadas
 
 #### Sprint 3 — Process Mining (concluído)
 

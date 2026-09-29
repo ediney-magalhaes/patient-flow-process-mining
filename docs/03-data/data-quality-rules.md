@@ -595,3 +595,62 @@ condição em si também precisa ser avaliada por fonte, não só a ação
 tomada com base nela, uma condição calculada fora do laço, aplicada a
 resultados dentro do laço, é um padrão fácil de errar silenciosamente
 quando fontes têm disponibilidade de dado heterogênea.
+
+
+## RQ-015 — Reintrodução de contaminação de `ano_mes` no notebook de Process Mining (`gold_sna_handover`)
+
+- **Tabela de origem:** `gold_event_log` (via notebook `03_process_mining.ipynb`)
+- **Tabelas afetadas:** `gold_sna_handover` (dado incorreto), `gold_sna_subcontracting` (exposta ao mesmo defeito, sem dado incorreto)
+- **Célula afetada:** preparação do `df_formatado` (chamada de `pm4py.format_dataframe`)
+- **Data do achado:** 2026-09-29
+- **Contexto:** ADR-0018 (origem de `ano_mes` por lote) e construção da Página 4 do Dashboard
+
+### Achado
+
+Ao inspecionar `gold_sna_handover` para a Página 4, a soma de `frequencia`
+por `ano_mes` retornou 12.551 registros em `2026-03` e 58 em `2026-04`,
+com apenas um mês real de ingestão. O `gold_event_log` continha somente
+`2026-03` (189.011 eventos), portanto a contaminação não vinha da Gold: era
+introduzida dentro do notebook.
+
+### Causa raiz
+
+A célula do `pm4py.format_dataframe` recalculava
+`df_formatado["ano_mes"]` a partir de `time:timestamp` (timestamp de cada
+evento individual), sobrescrevendo o `ano_mes` de lote que já chegava do
+`gold_event_log`. É o mesmo mecanismo já corrigido na Gold pela ADR-0018:
+eventos administrativos com timestamp fora do mês do lote passam a ser
+atribuídos a outro mês. A correção da ADR-0018 cobriu as funções
+`gold_events_*`, mas não esta linha do notebook.
+
+O `gold_sna_subcontracting` saiu com um único mês por acaso: o padrão
+A→B→A raramente atravessa a virada de mês. O defeito estava presente nas
+duas análises.
+
+Uma armadilha adicional apareceu durante a correção: ao apagar a linha,
+o `pm4py.format_dataframe` converteu o `ano_mes` (texto `"2026-03"`) em
+timestamp (`2026-03-01 00:00:00+00:00`), o que quebraria o filtro
+`array_contains(:periodo, ano_mes)` do Dashboard e o `mes_atual[:4]` da
+Conformance.
+
+### Decisão
+
+A linha que recalculava `ano_mes` a partir do timestamp foi removida e
+substituída por `df_formatado["ano_mes"].dt.strftime("%Y-%m")`, que apenas
+devolve ao formato texto o `ano_mes` de lote vindo da Gold. Apenas
+`gold_sna_handover` e `gold_sna_subcontracting` foram regravadas.
+Confirmação por consulta direta: `gold_sna_handover` passou a ter só
+`2026-03`, com total de 12.609 (= 12.551 + 58), sem perda de registros.
+
+As demais tabelas do notebook (`gold_bottleneck`, `gold_performance_spectrum`,
+`gold_dfg_macro`, `gold_variant_analysis`) derivam `ano_mes` de
+`data_referencia` e não dependiam da linha removida. A Conformance usa
+`mes_atual` extraído de `ano_mes`, que continua `2026-03`.
+
+### Ação futura recomendada
+
+Ao corrigir a origem de uma coluna em uma camada, buscar a mesma coluna nas
+camadas e notebooks posteriores que a recalculam, e não só nas
+transformações da camada corrigida. Ao usar `pm4py.format_dataframe`,
+conferir o tipo das colunas extras após a chamada: strings com aparência
+de data podem ser convertidas silenciosamente para timestamp.
