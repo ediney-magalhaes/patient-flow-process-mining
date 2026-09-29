@@ -528,39 +528,33 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 
 ### gold_sna_handover
 
-- **Descrição:** Padrões de handover de trabalho entre setores hospitalares,
-  com especialidade médica como atributo da transição. Identifica os
-  principais fluxos de encaminhamento entre setores.
-- **Granularidade:** Uma linha por combinação setor_origem × setor_destino
-  × ano_mes × especialidade.
-- **Origem:** `gold_event_log` (via notebook `03_process_mining.ipynb`)
+- **Descrição:** Sucessão de eventos entre tabelas de origem (`source`) dentro da mesma jornada do paciente, com a especialidade do evento de **destino** como atributo da transição. Não é fluxo clínico direcional: "Alta → Internação", por exemplo, corresponde a "Alta médica", "Alta Hospitalar" ou "Prescricao de alta" seguidas de "Alta da Internacao", ou seja, registros de alta do mesmo episódio em tabelas diferentes (ver RQ-016).
+- **Granularidade:** Uma linha por combinação source_anterior × source × ano_mes × especialidade (do evento de destino). Só entram mudanças de `source`; a passagem dentro da mesma tabela (ex.: dentro de Movimentações, onde ficam as idas e vindas de UTI) não aparece.
+- **Origem:** `gold_event_log` (via notebook `03_process_mining.ipynb`), sequenciado por `case_id_jornada`, e não por `case_id` (corrigido em 29/09/2026, RQ-016). Antes da correção, a passagem Emergência → Internação não existia na tabela.
 - **Frequência de atualização:** Mensal
 - **Schema:** `hospital_santa_rosa.gold_fluxo`
 
 | Coluna | Tipo | Descrição | Nullable |
 |---|---|---|---|
-| source_anterior | string | Setor que originou o encaminhamento | Não |
-| source | string | Setor que recebeu o encaminhamento | Não |
+| Tabela de origem do evento anterior na jornada | string | Setor que originou o encaminhamento | Não |
+| Tabela de origem do evento seguinte na jornada | string | Setor que recebeu o encaminhamento | Não |
 | ano_mes | string | Período de referência no formato YYYY-MM | Não |
 | especialidade | string | Especialidade médica da transição | Sim |
 | frequencia | long | Número de ocorrências do handover | Não |
 
 ### gold_sna_subcontracting
 
-- **Descrição:** Padrões de subcontracting entre setores hospitalares,
-  casos onde um setor delega para outro e retoma o atendimento (padrão
-  A->B->A). Identifica delegações temporárias no fluxo hospitalar.
-- **Granularidade:** Uma linha por combinação setor_A × ano_mes ×
-  setor_intermediário × especialidade do intermediário.
-- **Origem:** `gold_event_log` (via notebook `03_process_mining.ipynb`)
+- **Descrição:** Sequências A→B→A entre tabelas de origem (`source`) dentro da mesma jornada do paciente: eventos de A, depois de B, depois de A de novo. Descreve uma sequência observada por horário, e não prova delegação (ex.: Imagem → Emergência/ortopedia → Imagem pode ser exame de controle).
+- **Granularidade:** Uma linha por combinação source (A) × ano_mes × source_1_atras (B, intermediário) × especialidade do evento intermediário. O padrão só é detectado entre tabelas diferentes.
+- **Origem:** `gold_event_log` (via notebook `03_process_mining.ipynb`), sequenciado por `case_id_jornada` (corrigido em 29/09/2026, RQ-016)
 - **Frequência de atualização:** Mensal
 - **Schema:** `hospital_santa_rosa.gold_fluxo`
 
 | Coluna | Tipo | Descrição | Nullable |
 |---|---|---|---|
-| source | string | Setor que delega e retoma o atendimento | Não |
+| Tabela de origem que abre e fecha a sequência (A) | string | Setor que delega e retoma o atendimento | Não |
 | ano_mes | string | Período de referência no formato YYYY-MM | Não |
-| source_1_atras | string | Setor intermediário da delegação | Não |
+| Tabela de origem do evento intermediário (B) | string | Setor intermediário da delegação | Não |
 | especialidade_1_atras | string | Especialidade do setor intermediário | Sim |
 | frequencia | long | Número de ocorrências do padrão | Não |
 
@@ -586,8 +580,9 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 | `fl_evasao` | int | Indica se o paciente evadiu do atendimento de emergência sem alta formal — mesma fonte curada de `fl_conversao` | Não |
 | `has_cirurgia` | boolean | Indica se o episódio envolveu procedimento cirúrgico | Não |
 | `has_uti` | boolean | Indica se o paciente passou pela UTI durante a internação | Não |
-| `qtd_passagens_uti` | int | Número de entradas distintas na UTI — entradas vindas de fora da UTI; transferências entre unidades intensivas contam como continuação | Sim |
-| `duracao_total_uti_min` | int | Soma das durações de todas as passagens pela UTI em minutos | Sim |
+| `qtd_passagens_uti` | int | Número de entradas distintas na UTI: só entradas vindas de fora da UTI. Transferência entre unidades intensivas (ex: UTIA1 → UTIB) conta como continuação. Movimentações deduplicadas antes da contagem, porque `TRANSFER. DE` e `TRANSFER. PARA` são o mesmo evento físico. Corrigido em 29/09/2026, antes contava em dobro (ver RQ-017) | Sim, null quando não há passagem pela UTI |
+| `qtd_reentradas_uti` | int | Entradas na UTI depois da primeira, dentro da mesma internação (`max(qtd_passagens_uti - 1, 0)`). Conta qualquer retorno à UTI após sair dela, inclusive depois de passagem por centro cirúrgico ou hemodinâmica, então não equivale a "alta precoce da UTI". Ver RQ-017 | Não, 0 quando não passou pela UTI |
+| `duracao_total_uti_min` | int | Soma das durações das passagens pela UTI em minutos. Cada intervalo vai de uma entrada vinda de fora da UTI até a primeira saída real posterior; transferência entre unidades de UTI não abre novo intervalo (ver RQ-017) | Sim |
 | `ts_chegada` | timestamp | Primeiro registro do paciente na emergência (`DT_HR_TOTEM_RECEP`) | Sim |
 | `ts_entrada_internacao` | timestamp | Momento de abertura da internação (`DT_HR_ATENDIMENTO` de `silver_internacoes`) | Sim |
 | `ts_entrada_cirurgia` | timestamp | Momento de entrada na sala cirúrgica (`DT_HR_ENTRADA_SALA_CIRURG`) | Sim |

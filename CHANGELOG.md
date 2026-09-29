@@ -90,6 +90,9 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   sobre a precision baixa e tabela comparativa por fonte com `total_traces`;
   datasets: `conformance_tendencia`, `dim_periodo`; documentado em
   `docs/06-deliverables/dashboard-conformidade.md`
+- `gold_patient_journey`: nova coluna `qtd_reentradas_uti` (entradas na
+  UTI após a primeira, dentro da mesma internação), base para medir
+  reentrada na UTI na Página 4 do Dashboard
 
 #### Corrigido
 
@@ -166,6 +169,13 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   `case_id_jornada`); chave trocada nas duas análises e as tabelas
   regravadas (handover: 216 → 263 combinações, 370 transições
   Emergência → Internação; subcontracting: 64 → 72 combinações)
+- RQ-017: `qtd_passagens_uti` em `gold_patient_journey` contava em dobro
+  as entradas na UTI por transferência (`TRANSFER. DE` e `TRANSFER. PARA`
+  descrevem o mesmo evento físico) e tratava transferência entre unidades
+  de UTI como nova passagem; `df_movim` deduplicado e a contagem (e a
+  duração em UTI) passaram a considerar só entradas vindas de fora da UTI.
+  Jornadas com "reentrada" caíram de 228 para 15; `has_uti` e os KPIs da
+  Página 1 não foram afetados
 
 #### Sprint 3 — Process Mining (concluído)
 

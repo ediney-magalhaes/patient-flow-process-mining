@@ -697,3 +697,44 @@ Nas células #1 e #3, `case:concept:name` foi substituído por `case_id_jornada`
 ### Ação futura recomendada
 
 Ao criar uma chave de caso nova, listar todas as análises que ainda usam a chave antiga e migrá-las. Antes de publicar uma rede de processos, conferir se as arestas esperadas pelo negócio existem.
+
+
+
+
+## RQ-017 — Contagem em dobro de entradas na UTI em `gold_patient_journey` (`qtd_passagens_uti`)
+
+- **Tabela afetada:** `gold_patient_journey`
+- **Campos afetados:** `qtd_passagens_uti` (valor incorreto), `duracao_total_uti_min` (exposto ao mesmo defeito); nova coluna `qtd_reentradas_uti`
+- **Célula afetada:** cálculo de métricas de UTI em `gold_patient_journey` (`gold_transformation.py`)
+- **Data do achado:** 2026-09-29
+- **Contexto:** construção da Página 4 do Dashboard (jornada com desvios, incluindo UTI)
+
+### Achado
+
+Ao avaliar se a Página 4 poderia mostrar reentradas na UTI, a consulta por tipo de jornada mostrou `com_reentrada_uti` quase igual a `com_uti` (112 de 113 nas internações clínicas; 73 de 73 nas cirúrgicas de emergência). Um retorno real à UTI para quase todo paciente de UTI não é plausível.
+
+Verificação direta em `silver_movimentacoes`: os 270 eventos físicos de transferência com destino em unidade de UTI aparecem sempre em pares, um registro `TRANSFER. DE` e outro `TRANSFER. PARA` (`eventos_fisicos` = 270, `com_de_e_para` = 270). O `gold_events_movimentacoes` já deduplicava esses pares, mas o `gold_patient_journey` lia a Silver sem essa deduplicação.
+
+### Causa raiz
+
+Dois defeitos combinados:
+
+1. **Duplicação de transferências.** `df_movim` não era deduplicado, então cada entrada na UTI por transferência contava 2 em `qtd_passagens_uti`.
+2. **Definição de "passagem".** `condicao_entrada_uti` olhava só o destino (UTIA1, UTIA2, UTIB, UCO, UNP), então transferência entre unidades de UTI (ex.: UTIA1 → UTIB) contava como nova passagem, embora o paciente não tenha saído da terapia intensiva. O mesmo critério em `df_entradas` fazia `duracao_total_uti_min` somar dois intervalos para a mesma estadia.
+
+### Decisão
+
+- `df_movim` deduplicado por `(CD_INTERNACAO, DT_HR_MOVIMENTACAO, origem_movimentacao, destino_movimentacao)`, mesmo critério de `gold_events_movimentacoes`.
+- `qtd_passagens_uti` e `df_entradas` passam a contar só entradas vindas de **fora** da UTI (`condicao_entrada_uti & ~origem_e_uti`). Transferência entre unidades de UTI não é nova passagem.
+- Nova coluna `qtd_reentradas_uti` = `max(qtd_passagens_uti - 1, 0)`: entradas na UTI depois da primeira, dentro da mesma internação.
+- `has_uti` não muda (`qtd_passagens_uti > 0`), então os KPIs da Página 1 não são afetados.
+
+Resultado após Full Refresh de `gold_transformations`: `com_uti` inalterado (249); jornadas com reentrada caíram de 228 para 15 (2 cirúrgicas eletivas, 7 clínicas, 6 cirúrgicas de emergência), com 17 reentradas no total e máximo de 3 passagens.
+
+### Limitação de definição
+
+`qtd_reentradas_uti` conta qualquer nova entrada vinda de fora da UTI. Saída da UTI para centro cirúrgico ou hemodinâmica seguida de retorno também conta. Nos visuais, o rótulo deve ser "reentrada na UTI", e não "alta precoce da UTI".
+
+### Ação futura recomendada
+
+Ao contar eventos de uma tabela que já é deduplicada em outra camada, aplicar a mesma deduplicação em todos os consumidores. Desconfiar de métricas em que "quase todos" os casos têm uma condição rara: é sintoma comum de contagem duplicada.
