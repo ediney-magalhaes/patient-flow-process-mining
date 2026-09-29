@@ -820,14 +820,14 @@ def gold_patient_journey():
     df_qtd_passagens_uti = df_movim.filter(condicao_entrada_uti & ~origem_e_uti) \
         .groupBy("CD_INTERNACAO") \
         .agg(F.count("DT_HR_MOVIMENTACAO").alias("qtd_passagens_uti"))
-
-    # DataFrame de entradas
-    df_entradas = df_movim.filter(condicao_entrada_uti) \
-        .select("CD_INTERNACAO", F.col("DT_HR_MOVIMENTACAO").alias("ts_entrada"))
     
     # DataFrame de entradas: só entrada vinda de FORA da UTI (transferência entre unidades não abre novo intervalo, senão a duração soma em dobro)
     df_entradas = df_movim.filter(condicao_entrada_uti & ~origem_e_uti) \
         .select("CD_INTERNACAO", F.col("DT_HR_MOVIMENTACAO").alias("ts_entrada"))
+
+    # DataFrame de saídas
+    df_saidas = df_movim.filter(condicao_saida_uti) \
+        .select("CD_INTERNACAO", F.col("DT_HR_MOVIMENTACAO").alias("ts_saida"))
     
     # DataFrame do tempo de duração em UTI (minutos)
     df_duracao_uti = df_entradas.join(df_saidas, on="CD_INTERNACAO", how="left") \
