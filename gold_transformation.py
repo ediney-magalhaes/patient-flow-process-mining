@@ -752,6 +752,12 @@ def gold_patient_journey():
         F.col("DT_HR_MOVIMENTACAO")
     )
 
+    # deduplica transferências: TRANSFER. DE e TRANSFER. PARA descrevem o mesmo
+    # evento físico, registrado duas vezes na origem (mesmo critério de gold_events_movimentacoes)
+    df_movim = df_movim.dropDuplicates(
+    ["CD_INTERNACAO", "DT_HR_MOVIMENTACAO", "origem_movimentacao", "destino_movimentacao"]
+    )
+
     # seleção das colunas necessárias na tabela de altas
     df_altas = df_altas.select(
         F.col("ATENDIMENTO").alias("CD_INTERNACAO"),
@@ -803,8 +809,15 @@ def gold_patient_journey():
         .groupBy("CD_INTERNACAO") \
         .agg(F.max("DT_HR_MOVIMENTACAO").alias("ts_ultima_saida_uti"))
 
-    # DataFrame para contagem de passagens na UTI
-    df_qtd_passagens_uti = df_movim.filter(condicao_entrada_uti) \
+    # origem é unidade de UTI? coalesce evita resultado nulo quando ORIGEM vem vazia (ex: admissão direta na UTI, tipo INTERNACAO)
+    origem_e_uti = None
+    for prefixo in uti_prefixos:
+        cond = F.coalesce(F.col("origem_movimentacao").startswith(prefixo), F.lit(False))
+        origem_e_uti = cond if origem_e_uti is None else (origem_e_uti | cond)
+
+    # DataFrame para contagem de passagens na UTI: só conta entrada vinda de FORA da UTI
+    # Transferência entre unidades de UTI (ex: UTIA1 → UTIB) não é nova passagem
+    df_qtd_passagens_uti = df_movim.filter(condicao_entrada_uti & ~origem_e_uti) \
         .groupBy("CD_INTERNACAO") \
         .agg(F.count("DT_HR_MOVIMENTACAO").alias("qtd_passagens_uti"))
 
@@ -812,9 +825,9 @@ def gold_patient_journey():
     df_entradas = df_movim.filter(condicao_entrada_uti) \
         .select("CD_INTERNACAO", F.col("DT_HR_MOVIMENTACAO").alias("ts_entrada"))
     
-    # DataFrame de saídas
-    df_saidas = df_movim.filter(condicao_saida_uti) \
-        .select("CD_INTERNACAO", F.col("DT_HR_MOVIMENTACAO").alias("ts_saida"))
+    # DataFrame de entradas: só entrada vinda de FORA da UTI (transferência entre unidades não abre novo intervalo, senão a duração soma em dobro)
+    df_entradas = df_movim.filter(condicao_entrada_uti & ~origem_e_uti) \
+        .select("CD_INTERNACAO", F.col("DT_HR_MOVIMENTACAO").alias("ts_entrada"))
     
     # DataFrame do tempo de duração em UTI (minutos)
     df_duracao_uti = df_entradas.join(df_saidas, on="CD_INTERNACAO", how="left") \
@@ -866,6 +879,7 @@ def gold_patient_journey():
     # adiciona colunas ao DataFrame da jornada
     df_journey = df_journey \
         .withColumn("has_uti", F.col("qtd_passagens_uti").isNotNull() & (F.col("qtd_passagens_uti") > 0)) \
+        .withColumn("qtd_reentradas_uti", F.greatest(F.coalesce(F.col("qtd_passagens_uti"), F.lit(0)) - 1, F.lit(0))) \
         .withColumn("has_cirurgia", F.col("ts_entrada_cirurgia").isNotNull()) \
         .withColumn("ano_mes", F.date_format(F.coalesce(F.col("DT_ATENDIMENTO"), F.col("ts_entrada_internacao")), "yyyy-MM")) \
         .withColumn("duracao_emergencia_internacao_min", (F.unix_timestamp("ts_entrada_internacao") - F.unix_timestamp("ts_chegada")) / 60) \
@@ -905,6 +919,7 @@ def gold_patient_journey():
         "has_cirurgia",
         "has_uti",
         "qtd_passagens_uti",
+        "qtd_reentradas_uti",
         "duracao_total_uti_min",
         "ts_chegada",
         "ts_entrada_internacao",
