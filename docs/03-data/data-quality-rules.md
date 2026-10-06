@@ -770,6 +770,12 @@ Não confirmada. A hipótese é que a base exportada para este projeto contém s
 
 Confirmar com a área responsável pelo sistema de origem se existe exame laboratorial de pacientes internados e, se existir, incluí-lo na próxima extração. Já está previsto que a base de laboratório passe a cobrir internados. Ao ingerir o histórico, reconferir o percentual por porta.
 
-### Registro relacionado: nomes de especialidade na Página 4
+### Registro relacionado: nomes de especialidade na Página 4 (resolvido em 06/10/2026)
 
-A Página 4 mostra nomes brutos de especialidade (`MEDICO PEDIATRA` e `PEDIATRIA` aparecem separados, assim como `MEDICO CARDIOLOGISTA` e `CARDIOLOGIA`), porque só a Página 2 aplica `vw_dim_especialidade`. Decisão: corrigir depois de fechar a documentação, aplicando a view nos datasets da Página 4 (`handover_matriz`, `handover_pct`, `handover_especialidade` e `dim_especialidade`). Pendente.
+A Página 4 mostrava nomes brutos de especialidade: `MEDICO PEDIATRA` e `PEDIATRIA` (assim como `MEDICO CARDIOLOGISTA` e `CARDIOLOGIA`) apareciam separados, porque só a Página 2 aplicava `vw_dim_especialidade`.
+
+**Decisão:** aplicar a view nos datasets `handover_matriz`, `handover_pct` e `handover_especialidade`, com `coalesce(e.especialidade_label, h.especialidade)`. O `dim_especialidade` já aplicava a tradução e não mudou. Quem não tem tradução mantém o nome bruto.
+
+**Verificação:** sem filtro, os totais dos datasets não mudaram. Em `Emergência → Exames de Imagem`, `PEDIATRIA` passou a 159 (146 + 13) e `CARDIOLOGIA` a 168 (166 + 2), cada uma em uma linha só. Com o filtro de Especialidade em `PEDIATRIA`, a matriz e o heatmap de percentual responderam. Todas as especialidades do `gold_sna_handover` existem no `dim_especialidade`.
+
+**Limitação:** a view cobre só 6 especialidades, e as outras 25 seguem com o nome bruto. `GENERALISTA` e `CLINICA MEDICA` continuam separadas, e só a área assistencial pode dizer se são a mesma coisa.

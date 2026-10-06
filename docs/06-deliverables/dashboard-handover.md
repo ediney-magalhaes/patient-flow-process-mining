@@ -126,7 +126,7 @@ A cirurgia é desvio na Emergência (bifurcação de uma minoria dos internados)
 - **Gráfico:** barras horizontais ordenadas, eixo X "Número de transições", eixo Y "Especialidade do processo de destino", rótulos de valor.
 - **Tooltip:** `SUM(pct_da_passagem)`, nome de exibição "% da passagem". O percentual fica no tooltip para não poluir o gráfico.
 - **Description:** "O filtro de Especialidade do topo não se aplica a este gráfico."
-- **Referência (mar/2026), Emergência → Internação:** Clínica Médica 132, Generalista 63, Geriatria 51, Médico Pediatra 42, Cirurgia Geral 33, Médico Cardiologista 29, Ortopedia 13, total 370.
+- **Referência (mar/2026), Emergência → Internação:** Clínica Médica 132, Generalista 63, Geriatria 51, Pediatria 42, Cirurgia Geral 33, Cardiologia 29, Ortopedia 13, total 370.
 - **Por que barras e não funil:** as especialidades são categorias paralelas, não etapas em que cada uma é subconjunto da anterior. Funil sugeriria uma perda entre etapas que não existe.
 - **Passagens sem especialidade:** Laboratório e Movimentações não têm especialidade, então passagens que partem ou chegam nesses processos podem mostrar poucas especialidades.
 
@@ -384,8 +384,9 @@ select
 from hospital_santa_rosa.gold_fluxo.gold_sna_handover h
 join hospital_santa_rosa.gold_fluxo.vw_dim_source o on h.source_anterior = o.source
 join hospital_santa_rosa.gold_fluxo.vw_dim_source d on h.source = d.source
+left join hospital_santa_rosa.gold_fluxo.vw_dim_especialidade e on h.especialidade = e.especialidade_origem
 where (:periodo is null or array_contains(:periodo, h.ano_mes))
-  and (:especialidade_filtro is null or array_contains(:especialidade_filtro, h.especialidade))
+  and (:especialidade_filtro is null or array_contains(:especialidade_filtro, coalesce(e.especialidade_label, h.especialidade)))
 group by 1, 2
 ```
 
@@ -402,8 +403,9 @@ select
 from hospital_santa_rosa.gold_fluxo.gold_sna_handover h
 join hospital_santa_rosa.gold_fluxo.vw_dim_source o on h.source_anterior = o.source
 join hospital_santa_rosa.gold_fluxo.vw_dim_source d on h.source = d.source
+left join hospital_santa_rosa.gold_fluxo.vw_dim_especialidade e on h.especialidade = e.especialidade_origem
 where (:periodo is null or array_contains(:periodo, h.ano_mes))
-  and (:especialidade_filtro is null or array_contains(:especialidade_filtro, h.especialidade))
+  and (:especialidade_filtro is null or array_contains(:especialidade_filtro, coalesce(e.especialidade_label, h.especialidade)))
 group by 1, 2
 ```
 
@@ -413,12 +415,13 @@ Grão: 1 linha por especialidade, para a passagem escolhida. Parâmetros: `passa
 
 ```sql
 select
-    coalesce(h.especialidade, 'Sem especialidade') as especialidade,
+    coalesce(e.especialidade_label, h.especialidade, 'Sem especialidade') as especialidade,
     sum(h.frequencia) as transicoes,
     round(sum(h.frequencia) * 100.0 / sum(sum(h.frequencia)) over (), 1) as pct_da_passagem
 from hospital_santa_rosa.gold_fluxo.gold_sna_handover h
 join hospital_santa_rosa.gold_fluxo.vw_dim_source o on h.source_anterior = o.source
 join hospital_santa_rosa.gold_fluxo.vw_dim_source d on h.source = d.source
+left join hospital_santa_rosa.gold_fluxo.vw_dim_especialidade e on h.especialidade = e.especialidade_origem
 where concat(o.source_label, ' → ', d.source_label) = :passagem
   and (:periodo is null or array_contains(:periodo, h.ano_mes))
 group by 1
@@ -467,9 +470,16 @@ join hospital_santa_rosa.gold_fluxo.vw_dim_source d on h.source = d.source
 order by 1
 ```
 
-- `dim_especialidade`: dataset já existente, compartilhado com a Página 2 (campo `especialidade`).
+- `dim_especialidade`: dataset já existente, compartilhado com a Página 2. Aplica `vw_dim_especialidade` (nome traduzido quando existe, nome bruto quando não) e lê de `gold_bottleneck`. Cobre todas as especialidades de `gold_sna_handover` (conferido em 06/10/2026), mas se uma especialidade nova aparecer só no handover, ela não entrará no filtro até existir no bottleneck.
 
-> **Lacuna:** SQL do `dim_especialidade` não capturado; consultar no editor do dataset se precisar da query exata.
+```sql
+SELECT DISTINCT COALESCE(v.especialidade_label, b.especialidade) AS especialidade
+FROM hospital_santa_rosa.gold_fluxo.gold_bottleneck b
+LEFT JOIN hospital_santa_rosa.gold_fluxo.vw_dim_especialidade v
+  ON b.especialidade = v.especialidade_origem
+WHERE b.especialidade IS NOT NULL
+ORDER BY especialidade
+```
 
 ### Datasets excluídos
 
@@ -483,7 +493,6 @@ Todos os visuais previstos para a página foram construídos. O que segue aberto
 
 ### Reavaliar com o histórico
 
-- **Padronizar nomes de especialidade na Página 4.** Os datasets `handover_matriz`, `handover_pct`, `handover_especialidade` e `dim_especialidade` usam o nome bruto da origem, então `MEDICO PEDIATRA` e `PEDIATRIA` (e `MEDICO CARDIOLOGISTA` e `CARDIOLOGIA`) aparecem como itens separados. Correção prevista: aplicar `vw_dim_especialidade` nesses datasets, depois de fechar a documentação (ver RQ-018). Atenção: a view cobre só 6 especialidades, e as demais continuam com o nome bruto.
 - **Reentrada na UTI nas jornadas cirúrgicas.** O desenho não mostra reentrada na Cirurgia Eletiva (2 jornadas com `qtd_reentradas_uti > 0`, ambas UTI pós-operatória já contada no ramo "UTI após a cirurgia"). Na Emergência, as 6 reentradas de pacientes cirúrgicos ficaram fora, porque não se separa UTI pós-operatória esperada de retorno real (4 dessas 6 têm alguma entrada pós-operatória). Separar exige contar entradas por paciente depois da cirurgia.
 - **Filtro de especialidade das sequências.** Não reage por decisão (ver Estrutura da página). Se for necessário, criar filtro próprio, "especialidade do processo intermediário".
 - **Funil.** Avaliar se alguma página abriga um gráfico de funil. Hipótese ainda não verificada: a Página 1 (KPIs de Jornada), onde emergência, internação, cirurgia e UTI são subconjuntos encadeados.
