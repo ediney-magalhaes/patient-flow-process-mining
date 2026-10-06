@@ -113,10 +113,7 @@ Lakeflow Declarative Pipelines (pipeline `silver_transformations`).
 - **Granularidade:** 1 linha por atendimento de emergência (deduplicada por CD_ATENDIMENTO)
 - **Origem:** `bronze_atendimento_emergencia_raw`
 - **Volume referência:** 6.236 registros (mar/2026)
-- **Enriquecimento externo:** colunas `fl_conversao`, `fl_evasao` e `atend_internacao` 
-  incorporadas via `enrichment.py` a partir de dados curados do BigQuery 
-  (`pipeline-analytics-emergencia.marts.atendimentos_pa`) antes da anonimização — 
-  `atend_internacao` recebe hash SHA-256 igual a `CD_ATENDIMENTO`, para permitir 
+- **Enriquecimento externo:** colunas `fl_conversao`, `fl_evasao` e `atend_internacao` segue o mesmo tratamento de `CD_ATENDIMENTO`: texto puro, sem hash desde a ADR-0017 e a RQ-013, para permitir 
   join direto com `silver_internacoes.CD_INTERNACAO` na Gold
 - **Transformações aplicadas:**
   - Filtro por empresa (`EMPRESA = 'HSR'`)
@@ -251,7 +248,7 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 
 | Coluna | Tipo | Obrigatoriedade | Descrição |
 |---|---|---|---|
-| `case_id` | string | obrigatório | Identificador do atendimento (hash SHA-256) |
+| `case_id` | string | obrigatório | Identificador do atendimento, em texto puro (sem hash desde a ADR-0017) |
 | `activity` | string | obrigatório | Nome da atividade do evento |
 | `timestamp` | timestamp | obrigatório | Momento em que o evento ocorreu |
 | `lifecycle` | string | obrigatório | Fase do evento (`start` ou `complete`) |
@@ -434,7 +431,7 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 - **Schema:** `hospital_santa_rosa.gold_fluxo`
 - **Granularidade:** 1 linha por transição entre atividades × mês × dia da semana × especialidade de origem
 - **Origem:** `gold_event_log`, processado via PM4Py no notebook `03_process_mining.ipynb`
-- **Volume referência:** 7.621 linhas (mar/2026)
+- **Volume referência:** 11.873 linhas (mar/2026), medido em 06/10/2026
 - **Atualização:** manual — recalculada e sobrescrita quando o notebook de Process
   Mining é executado, não faz parte do pipeline `gold_transformations`
 - **Correção (18/08/2026):** `ano_mes` passou a ser derivado de `data_referencia`
@@ -536,8 +533,8 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 
 | Coluna | Tipo | Descrição | Nullable |
 |---|---|---|---|
-| Tabela de origem do evento anterior na jornada | string | Setor que originou o encaminhamento | Não |
-| Tabela de origem do evento seguinte na jornada | string | Setor que recebeu o encaminhamento | Não |
+| source_anterior | string | Tabela de origem do evento anterior na jornada | Não |
+| source | string | Tabela de origem do evento seguinte na jornada | Não |
 | ano_mes | string | Período de referência no formato YYYY-MM | Não |
 | especialidade | string | Especialidade médica da transição | Sim |
 | frequencia | long | Número de ocorrências do handover | Não |
@@ -552,9 +549,9 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 
 | Coluna | Tipo | Descrição | Nullable |
 |---|---|---|---|
-| Tabela de origem que abre e fecha a sequência (A) | string | Setor que delega e retoma o atendimento | Não |
+| source | string | Tabela de origem que abre e fecha a sequência (A) | Não |
+| source_1_atras | string | Tabela de origem do evento intermediário (B) | Não |
 | ano_mes | string | Período de referência no formato YYYY-MM | Não |
-| Tabela de origem do evento intermediário (B) | string | Setor intermediário da delegação | Não |
 | especialidade_1_atras | string | Especialidade do setor intermediário | Sim |
 | frequencia | long | Número de ocorrências do padrão | Não |
 
@@ -571,8 +568,8 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 
 | Coluna | Tipo | Descrição | Nullable |
 |---|---|---|---|
-| `cd_atendimento` | string | Identificador do atendimento de emergência (hash SHA-256) | Sim — null em internações diretas |
-| `cd_internacao` | string | Identificador da internação (hash SHA-256) | Sim — null em emergências puras e cirurgias ambulatoriais |
+| `cd_atendimento` | string | Identificador do atendimento de emergência, em texto puro (sem hash desde a ADR-0017) | Sim — null em internações diretas |
+| `cd_internacao` | string | Identificador da internação, em texto puro (sem hash desde a ADR-0017) | Sim — null em emergências puras e cirurgias ambulatoriais |
 | `cd_paciente` | string | Identificador único do cadastro do paciente (hash SHA-256) — estável entre todos os módulos do HIS | Não |
 | `journey_type` | string | Tipo de jornada, vocabulário de negócio (ver ADR-0014): `atendimento_emergencia` (passou pela emergência, sem conversão), `internacao_clinica` (converteu na emergência, sem cirurgia), `internacao_cirurgica_emergencia` (converteu na emergência, com cirurgia), `internacao_cirurgica_eletiva` (sem consulta prévia, com cirurgia), `internacao_clinica_direta` (sem consulta prévia, sem cirurgia — confirmada por investigação de dado real, ver RQ-010), `cirurgia_ambulatorial` (cirurgia sem internação vinculada). Classificação baseada em `fl_conversao` (curado) e presença de `cd_atendimento`/`ts_entrada_cirurgia`, não mais em presença física de `cd_internacao` | Não |
 | `ano_mes` | string | Mês de início da jornada no formato `yyyy-MM` — âncora temporal para séries históricas | Não |
@@ -692,3 +689,52 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 | `tempo_medio_min` | double | Tempo médio total decorrido entre os dois marcos, em minutos |
 | `tempo_mediano_min` | double | Tempo mediano entre os dois marcos, em minutos |
 | `frequencia` | bigint | Número de ocorrências dessa transição, no mês/especialidade |
+
+
+### vw_dim_source (view)
+
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Tipo:** View de dimensão, com valores fixos (`VALUES`). Não lê nenhuma tabela.
+- **Granularidade:** 1 linha por tabela Silver de origem (7 linhas)
+- **Propósito:** traduz o nome técnico de `source` para o rótulo de negócio exibido nos dashboards. É usada nos joins de `handover_matriz`, `handover_pct`, `handover_especialidade`, `subcontracting_sequencias` e `dim_passagem` (Página 4), e no filtro de Processo da Página 3.
+- **Manutenção:** manual. Uma fonte nova no `gold_event_log` só aparece nos dashboards depois de ganhar uma linha aqui; sem ela, o join descarta as linhas dessa fonte sem aviso.
+- **Colunas:**
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `source` | string | Nome da tabela Silver de origem (ex: `silver_atendimento_emergencia`) |
+| `source_label` | string | Rótulo de negócio (ex: `Emergência`) |
+
+| `source` | `source_label` |
+|---|---|
+| `silver_atendimento_emergencia` | Emergência |
+| `silver_cirurgias` | Cirúrgico |
+| `silver_internacoes` | Internação |
+| `silver_exames_imagem` | Exames de Imagem |
+| `silver_exames_laboratoriais` | Exame Laboratorial |
+| `silver_altas` | Alta |
+| `silver_movimentacoes` | Movimentações |
+
+### vw_dim_especialidade (view)
+
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Tipo:** View de dimensão, com valores fixos (`VALUES`). Não lê nenhuma tabela.
+- **Granularidade:** 1 linha por especialidade padronizada (6 linhas)
+- **Propósito:** padroniza nomes de especialidade vindos da origem (ex: `MEDICO PEDIATRA` para `PEDIATRIA`). A padronização acontece na query do dashboard, e não na Gold (ver nota de `gold_dfg_macro`).
+- **Cobertura parcial:** só 6 especialidades têm tradução. As demais ficam com o nome bruto da origem.
+- **Uso:** queries da Página 2. A Página 4 **não** usa esta view, então mostra os nomes brutos: `MEDICO PEDIATRA` e `PEDIATRIA` aparecem como itens separados no gráfico de especialidade por passagem, assim como `MEDICO CARDIOLOGISTA` e `CARDIOLOGIA`.
+- **Colunas:**
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `especialidade_origem` | string | Nome da especialidade como vem da origem |
+| `especialidade_label` | string | Nome padronizado |
+
+| `especialidade_origem` | `especialidade_label` |
+|---|---|
+| `MEDICO CARDIOLOGISTA` | CARDIOLOGIA |
+| `MEDICO INFECTOLOGISTA` | INFECTOLOGIA |
+| `MEDICO PEDIATRA` | PEDIATRIA |
+| `MEDICO NEFROLOGISTA` | NEFROLOGIA |
+| `MEDICO NEUROLOGISTA` | NEUROLOGIA |
+| `MEDICO PNEUMOLOGISTA` | PNEUMOLOGIA |

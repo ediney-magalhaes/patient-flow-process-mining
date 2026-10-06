@@ -95,3 +95,16 @@ revele a necessidade de diagnosticar desvios trace a trace.
   auditoria de casos específicos para apresentação à diretoria),
   alignment-based checking deve ser reavaliado como ADR específico, não
   assumido como extensão automática deste.
+
+
+---
+
+## Emenda (06/10/2026)
+
+Três pontos deste ADR foram superados pelo desenvolvimento do Sprint 4. A decisão de usar token replay **continua válida**. O que mudou foi o que se mede e o que se grava.
+
+1. **Persistência.** A Consequência que diz "resultados não persistidos como tabela Gold" não vale mais. O resultado é gravado em `gold_conformance` (por `source` e `ano_mes`, via `replaceWhere`) e alimenta a Página 3 do Dashboard (`dashboard-conformidade.md`).
+2. **Modelo de referência.** A primeira versão descobria o Process Tree do próprio mês testado (self-referential). O ADR-0019 passou a usar um período de referência (ano anterior fechado, histórico parcial, ou o próprio mês só quando não há nada anterior), com a checagem feita por fonte (RQ-014).
+3. **Valores.** "Fitness ≥ 0,9929 e precision entre 0,06 e 0,18" são os números da primeira versão. Os de março/2026, com a lógica atual, estão em `docs/05-process-mining/conformance.md` (fitness 1,0 em seis fontes e 0,9738 em Movimentações; precision entre 0,0237 e 0,4133). Como só existe um mês, todas as fontes ainda estão no caso self-referential, e os números medem o quanto o modelo descreve o log, e não o desvio do processo.
+
+A alternativa do alignment-based checking continua não implementada, com a mesma condição: reavaliar em ADR próprio se surgir a necessidade de diagnóstico caso a caso.

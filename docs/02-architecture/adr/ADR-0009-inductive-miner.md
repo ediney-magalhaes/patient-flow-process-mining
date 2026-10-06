@@ -20,7 +20,7 @@ A Fase 2 do Sprint 3 exige escolher um algoritmo de descoberta de processo
 para construir o model a partir do `gold_event_log`. O PM4Py oferece três
 algoritmos clássicos disponíveis nativamente: Alpha Miner, Heuristic Miner
 e Inductive Miner. Cada um tem estratégia e garantias distintas, e a
-escolha影响 diretamente a qualidade do conformance checking que viria
+escolha afeta diretamente a qualidade do conformance checking que viria
 depois (ADR-0009 original do roadmap — hoje formalizado como ADR-0010).
 
 O `gold_event_log` tem volume de ~190K eventos / ~7.6K traces, com ruído

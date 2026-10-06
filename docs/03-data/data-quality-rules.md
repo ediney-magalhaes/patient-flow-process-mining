@@ -738,3 +738,38 @@ Resultado após Full Refresh de `gold_transformations`: `com_uti` inalterado (24
 ### Ação futura recomendada
 
 Ao contar eventos de uma tabela que já é deduplicada em outra camada, aplicar a mesma deduplicação em todos os consumidores. Desconfiar de métricas em que "quase todos" os casos têm uma condição rara: é sintoma comum de contagem duplicada.
+
+
+
+
+
+## RQ-018 — Base de exames laboratoriais cobre só pacientes de emergência
+
+- **Tabela de origem:** `silver_exames_laboratoriais` (e `gold_events_exames_laboratoriais`)
+- **Campos afetados:** `case_type` (fixo em `emergencia`), `atend_internacao`, `case_id_jornada`
+- **Data do achado:** 2026-10-02
+- **Contexto:** construção da Página 4 do Dashboard (apoio diagnóstico por porta de entrada)
+
+### Achado
+
+Nas portas de entrada sem emergência, nenhuma jornada tem exame laboratorial: 0 de 364 na Cirurgia Eletiva e 0 de 58 na Internação Clínica. Na Emergência, 2.732 de 6.235 jornadas têm (43,8%). O exame de imagem não tem esse padrão (65 de 364 e 23 de 58 nas portas sem emergência).
+
+O `gold_events_exames_laboratoriais` define `case_type = 'emergencia'` para todos os registros, com a justificativa de que `CLASSI_RISCO` está presente em todos eles (ver `data-dictionary.md`).
+
+### Causa
+
+Não confirmada. A hipótese é que a base exportada para este projeto contém só exames de pacientes atendidos na emergência, seja por limitação da extração, seja por uma característica do sistema de origem. Não foi verificado qual das duas.
+
+### Decisão
+
+- O desenho da Página 4 mostra o laboratório como "sem dado" quando o valor vem zerado. A regra é por dado, e não por tipo de jornada: quando a base passar a cobrir internados, o desenho muda sozinho, sem alterar a query.
+- `valor = 0` não distingue "sem dado" de "ninguém fez exame". Hoje isso é aceitável, porque a ausência é estrutural.
+- Nenhuma correção de pipeline.
+
+### Ação futura recomendada
+
+Confirmar com a área responsável pelo sistema de origem se existe exame laboratorial de pacientes internados e, se existir, incluí-lo na próxima extração. Já está previsto que a base de laboratório passe a cobrir internados. Ao ingerir o histórico, reconferir o percentual por porta.
+
+### Registro relacionado: nomes de especialidade na Página 4
+
+A Página 4 mostra nomes brutos de especialidade (`MEDICO PEDIATRA` e `PEDIATRIA` aparecem separados, assim como `MEDICO CARDIOLOGISTA` e `CARDIOLOGIA`), porque só a Página 2 aplica `vw_dim_especialidade`. Decisão: corrigir depois de fechar a documentação, aplicando a view nos datasets da Página 4 (`handover_matriz`, `handover_pct`, `handover_especialidade` e `dim_especialidade`). Pendente.

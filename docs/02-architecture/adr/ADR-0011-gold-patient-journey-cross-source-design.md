@@ -90,3 +90,17 @@ full viável em cada execução.
 - Cirurgias ambulatoriais sem correspondência em `silver_atendimento_emergencia`
   (ex: ambulatório eletivo puro) não aparecem na tabela — estão fora do escopo
   do projeto
+
+
+---
+
+## Emenda (06/10/2026)
+
+Quatro pontos deste ADR foram superados pelo Sprint 4. A decisão de criar uma tabela wide com uma linha por episódio **continua válida**.
+
+1. **Tipos de jornada.** Os seis `journey_type` listados na Decisão (`emergencia_pura`, `internacao_direta_clinica` etc.) foram substituídos pelo vocabulário de negócio do ADR-0014: `atendimento_emergencia`, `internacao_clinica`, `internacao_cirurgica_emergencia`, `internacao_cirurgica_eletiva`, `internacao_clinica_direta` e `cirurgia_ambulatorial`. O ADR-0014 também acrescentou o Bloco B (internações sem emergência convertida), que este ADR não cobria.
+2. **Estratégia de junção.** A junção emergência → internação por `COD_PACIENTE` com janela de 1 dia foi substituída pela junção direta `atend_internacao == CD_INTERNACAO`, com a conversão curada no BigQuery (ver ADR-0013 e a atualização de 04/08/2026 na RQ-006). `ORIGEM_ATEND` continua só como atributo informativo.
+3. **Métricas de UTI.** Este ADR diz que transferências entre unidades intensivas são tratadas como continuação da mesma passagem, mas o código não fazia isso: cada destino em UTI contava como passagem, e os pares `TRANSFER. DE` e `TRANSFER. PARA` contavam em dobro. A regra descrita aqui passou a valer de fato em 29/09/2026 (RQ-017), e a tabela ganhou a coluna `qtd_reentradas_uti`.
+4. **Identificadores.** A menção a "hash SHA-256" para `CD_ATENDIMENTO` e `CD_INTERNACAO` deixou de valer com a ADR-0017: números de atendimento não são mais hasheados.
+
+Chave de caso: `gold_patient_journey` é a base de `case_id_jornada`, que as análises de gargalo, performance e handover usam desde a RQ-016.
