@@ -483,6 +483,7 @@ Todos os visuais previstos para a página foram construídos. O que segue aberto
 
 ### Reavaliar com o histórico
 
+- **Padronizar nomes de especialidade na Página 4.** Os datasets `handover_matriz`, `handover_pct`, `handover_especialidade` e `dim_especialidade` usam o nome bruto da origem, então `MEDICO PEDIATRA` e `PEDIATRIA` (e `MEDICO CARDIOLOGISTA` e `CARDIOLOGIA`) aparecem como itens separados. Correção prevista: aplicar `vw_dim_especialidade` nesses datasets, depois de fechar a documentação (ver RQ-018). Atenção: a view cobre só 6 especialidades, e as demais continuam com o nome bruto.
 - **Reentrada na UTI nas jornadas cirúrgicas.** O desenho não mostra reentrada na Cirurgia Eletiva (2 jornadas com `qtd_reentradas_uti > 0`, ambas UTI pós-operatória já contada no ramo "UTI após a cirurgia"). Na Emergência, as 6 reentradas de pacientes cirúrgicos ficaram fora, porque não se separa UTI pós-operatória esperada de retorno real (4 dessas 6 têm alguma entrada pós-operatória). Separar exige contar entradas por paciente depois da cirurgia.
 - **Filtro de especialidade das sequências.** Não reage por decisão (ver Estrutura da página). Se for necessário, criar filtro próprio, "especialidade do processo intermediário".
 - **Funil.** Avaliar se alguma página abriga um gráfico de funil. Hipótese ainda não verificada: a Página 1 (KPIs de Jornada), onde emergência, internação, cirurgia e UTI são subconjuntos encadeados.

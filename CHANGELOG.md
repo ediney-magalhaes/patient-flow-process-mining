@@ -104,6 +104,22 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   `handover_matriz`, `handover_pct`, `handover_especialidade`,
   `subcontracting_sequencias`, `dim_porta` e `dim_passagem`; documentado
   em `docs/06-deliverables/dashboard-handover.md`
+- ADR-0020: design da Página 4 do Dashboard (Handover) — duas camadas,
+  portas de entrada (Emergência, Cirurgia Eletiva, Internação Clínica) e
+  cálculo no SQL em vez do JSON do Custom Viz
+- RQ-018: base de exames laboratoriais cobre só pacientes de emergência;
+  registra também a pendência de padronizar os nomes de especialidade na
+  Página 4
+- Emendas de 06/10/2026 aos ADR-0010 (persistência, modelo de referência
+  e valores da Conformance) e ADR-0011 (tipos de jornada, junção e
+  métricas de UTI)
+- `docs/05-process-mining/`: capítulos `fundamentals`, `event-log`,
+  `discovery`, `conformance`, `bottlenecks` e `variants`;
+  `social-network-analysis` ampliado com a aplicação no projeto
+- `docs/08-learning/custom-viz-vega-lite-no-aibi.md` e lição sobre chave
+  do caso em `organizational-mining.md`
+- `docs/03-data/data-dictionary.md`: entradas de `vw_dim_source` e
+  `vw_dim_especialidade`
 
 #### Corrigido
 

@@ -87,3 +87,17 @@ intermediárias sem valor analítico direto. Ver ADR-0007 para essa decisão.
 - Timestamps descartados por serem redundantes: `HR_CHAM_MED` de
   `silver_exames_laboratoriais` (mesmo valor de `DT_HR_TOTEM_RECEP` da emergência)
   e `DATA_INICIO_CIRURGIA` de `silver_cirurgias` (redundante com `DT_INICIO_CIRURGIA`)
+
+
+
+---
+
+## Emenda (06/10/2026)
+
+Três pontos deste ADR divergem do código atual de `gold_transformation.py`. A decisão de mapear os timestamps de cada fonte para eventos **continua válida**.
+
+1. **Movimentações.** A tabela lista a atividade como "valor de `TIPO`". No código, o nome é montado com tipo, origem e destino (ex.: `INTERNACAO: Externo → UTIA1 05`). Para `TRANSFER. DE` e `TRANSFER. PARA`, o nome é normalizado para `TRANSFERÊNCIA: origem → destino`, e os pares duplicados são removidos antes (mesmo evento físico registrado duas vezes, ver RQ-017).
+2. **Grafia de atividades de alta.** O ADR escreve "Prescricao de Alta" e "Alta Medica". O código usa `Prescricao de alta` e `Alta médica`. Vale a grafia do código, que é a que aparece no `gold_event_log` e nos dashboards.
+3. **`DATA_INICIO_CIRURGIA`.** O ADR a descreve como descartada por redundância com `DT_INICIO_CIRURGIA`. Ela não entra como evento, mas é a base de `data_referencia` em cirurgias (`gold_events_cirurgias`) e de `ano_mes` em `gold_patient_journey`, então não é descartada do pipeline.
+
+Além disso, o schema canônico ganhou as colunas `data_referencia` e `case_id_jornada` em todas as fontes (ver `event-log.md`).

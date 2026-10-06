@@ -4,16 +4,18 @@ Documentação da disciplina de Process Mining aplicada ao fluxo hospitalar. A i
 
 ## Capítulos
 
+Ordem de leitura sugerida:
+
 | Capítulo | Status | Conteúdo | Ligações |
 |---|---|---|---|
+| `fundamentals.md` | Escrito | Tipos, perspectivas e particularidades do dado hospitalar | ADR-0004 |
+| `event-log.md` | Escrito | Estrutura do event log, padrão XES, chaves de caso | ADR-0006, ADR-0007, ADR-0018, `gold_event_log` |
+| `discovery.md` | Escrito | Algoritmos de descoberta: Alpha, Heuristic, Inductive | ADR-0009 |
+| `conformance.md` | Escrito | Conformance Checking: token replay, modelo de referência | ADR-0010, ADR-0019, RQ-014, `dashboard-conformidade.md` |
+| `bottlenecks.md` | Escrito | Gargalos, tempos de espera e Performance Spectrum | ADR-0016, `dashboard-gargalos.md` |
+| `variants.md` | Escrito | Variant Analysis e clustering de traces | `gold_variant_analysis` |
 | `social-network-analysis.md` | Escrito | Organizational Mining: handover, subcontracting, escolha do ator, chave do caso | ADR-0008, ADR-0020, RQ-015, RQ-016, `dashboard-handover.md` |
-| `fundamentals.md` | Planejado | Conceitos fundamentais e histórico | ADR-0004 |
-| `event-log.md` | Planejado | Estrutura do event log e padrão XES | ADR-0006, `gold_event_log` |
-| `discovery.md` | Planejado | Algoritmos de descoberta: Alpha, Heuristic, Inductive | ADR-0009 |
-| `conformance.md` | Planejado | Conformance Checking: token replay, modelo de referência | ADR-0010, ADR-0019, RQ-014, `dashboard-conformidade.md` |
-| `bottlenecks.md` | Planejado | Gargalos, tempos de espera e Performance Spectrum | ADR-0016, `dashboard-gargalos.md` |
-| `variants.md` | Planejado | Variant Analysis e clustering de traces | `gold_variant_analysis` |
 
-## Ordem de escrita
+## Pendências dos capítulos
 
-Os capítulos são escritos conforme o projeto tem material consolidado: `discovery`, `conformance`, `bottlenecks`, `variants`, `event-log` e `fundamentals`.
+Cada capítulo tem uma seção "Pendências" própria. As que dependem do histórico (cerca de 2 anos) ou de validação com a área assistencial ficam abertas até a ingestão.

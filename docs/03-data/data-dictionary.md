@@ -242,7 +242,7 @@ Lakeflow Declarative Pipelines (pipeline `silver_transformations`).
 ## Camada Gold
 
 Event log canônico para Process Mining e atributos de caso para enriquecimento analítico.
-Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
+Todas as tabelas `gold_events_*` seguem o schema canônico com 14 colunas.
 
 ### Schema canônico — tabelas gold_events_*
 
@@ -260,6 +260,8 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 | `location` | string | nullable | Unidade ou sala onde o evento ocorreu |
 | `source` | string | obrigatório | Tabela Silver de origem do evento |
 | `ano_mes` | string | obrigatório | Mês do **lote de ingestão** no formato `yyyy-MM`, propagado desde a Silver (ADR-0018), não recalculado por timestamp de evento. Âncora temporal para séries históricas e filtros mensais |
+| `data_referencia` | date | obrigatório | Data pura do evento clínico real, definida por fonte (ex.: `DT_ATENDIMENTO` na emergência, `DATA_INICIO_CIRURGIA` nas cirurgias). Evita atribuir o caso ao mês de um evento administrativo, como "Aviso de Cirurgia" |
+| `case_id_jornada` | string | obrigatório | Chave da jornada completa, que une casos de fontes diferentes do mesmo paciente. Na emergência, nos exames de imagem e nos exames laboratoriais é `atend_internacao` quando a emergência converteu e `CD_ATENDIMENTO` quando não converteu. Nas demais fontes é o próprio número da internação ou do atendimento (ver RQ-016) |
 
 ### gold_events_movimentacoes
 
@@ -377,7 +379,7 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 | `classificacao_risco` | string | null | `COR_CLASSIF` | Classificação de risco (somente emergência) |
 | `tipo_internacao` | string | `tipo_internacao` | null | Tipo de internação (somente internação) |
 | `nr_dias` | int | `nr_dias` | null | Número de dias de internação |
-| `qtd_passagens_uti` | int | `qtd_passagens_uti` | null | Quantidade de passagens pela UTI |
+| `qtd_passagens_uti` | int | `qtd_passagens_uti` | null | Quantidade de passagens pela UTI, **conforme registrada no `silver_epidemio`**. Não é a mesma medida de `gold_patient_journey.qtd_passagens_uti`, que é calculada a partir das movimentações de leito (entradas vindas de fora da UTI, ver RQ-017). Os dois valores podem divergir para o mesmo paciente |
 | `complexidade` | string | `PREVISAO_COMPLEXIDADE` | null | Complexidade prevista do caso |
 | `grupo_diagnostico` | string | `PREVISAO_GRUPO` | null | Grupo diagnóstico previsto |
 | `teve_cirurgia` | string | `cirurgia` | null | Indica se houve cirurgia |
@@ -421,7 +423,7 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 12 colunas.
 |---|---|---|
 | `rank` | bigint | Posição da variante no ranking de frequência **dentro do seu `ano_mes`** (1 = mais frequente naquele mês) |
 | `sequencia` | string | Sequência de atividades da variante, separadas por `→` |
-| `total_eventos` | bigint | Número de atividades distintas na sequência |
+| `total_eventos` | bigint | Número total de eventos da sequência, contando repetições (ex.: 3 exames laboratoriais geram 3 pedidos, 3 coletas e 3 laudos) |
 | `ano_mes` | string | Mês de referência da variante, derivado de `data_referencia` (evento clínico real, não administrativo) |
 | `total_casos` | bigint | Número de casos (traces) que seguem exatamente essa variante, naquele mês |
 | `cobertura_perc` | double | Percentual de casos cobertos por essa variante em relação ao total de casos daquele `ano_mes` |

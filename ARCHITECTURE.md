@@ -271,8 +271,8 @@ Free Edition. Alternativa: deploy manual ou scripts via REST API.
 | `gold_variant_analysis` | 1 linha por variante | Ranking de variantes de processo por frequência | ✅ Sprint 3 |
 | `gold_bottleneck` | 1 linha por transição × período | Tempos de transição entre atividades por setor | ✅ Sprint 3 |
 | `gold_conformance` | 1 linha por fonte × período | Fitness e precisão do mês testado contra modelo de referência (ano anterior fechado, com fallback — ADR-0019) | ✅ Sprint 3, metodologia revisada Sprint 4 |
-| `gold_sna_handover` | 1 linha por handover × período | Fluxos de encaminhamento entre setores | ✅ Sprint 3 |
-| `gold_sna_subcontracting` | 1 linha por padrão A→B→A × período | Delegações temporárias entre setores | ✅ Sprint 3 |
+| `gold_sna_handover` | 1 linha por par de processos × período × especialidade de destino | Sucessão de eventos entre tabelas de origem dentro da jornada (`case_id_jornada`), alimenta a Página 4 do Dashboard (RQ-016) | ✅ Sprint 3, chave corrigida Sprint 4 |
+| `gold_sna_subcontracting` | 1 linha por padrão A→B→A × período × especialidade do intermediário | Sequências de ida e volta entre tabelas de origem dentro da jornada, sem provar delegação (RQ-016) | ✅ Sprint 3, chave corrigida Sprint 4 |
 | `gold_performance_spectrum` | 1 linha por transição × mês × dia | Variação temporal do desempenho do processo | ✅ Sprint 3 |
 | `gold_patient_journey` | 1 linha por episódio completo | Jornada cross-source do paciente — 6 tipos de jornada com vocabulário de negócio (ADR-0014), conversão emergência→internação curada via BigQuery (ADR-0012, ADR-0013) | ✅ Sprint 4 |
 | `gold_dfg_macro` | 1 linha por transição × mês × especialidade | Grafo de fluxo panorâmico (DFG), 15 marcos curados manualmente, alimenta a Página 2 do Dashboard (ADR-0016) | ✅ Sprint 4 |
@@ -365,5 +365,5 @@ hospital_santa_rosa          (catalog)
 - [C4 Model](https://c4model.com/)
 ---
  
-**Última atualização:** 22/09/2026 • **Sprint atual:** 4 — Entregáveis (Fase 2 em andamento, Páginas 1 e 2 do Dashboard concluídas e publicadas, Página 3 em construção) •
+**Última atualização:** 06/10/2026 • **Sprint atual:** 4 — Entregáveis (Fase 2 em andamento, Páginas 1, 2, 3 e 4 do Dashboard concluídas e publicadas; faltam a Página 5 — Variantes —, o Genie Space e o Databricks App) •
 **Mantenedor:** [Ediney Magalhães](https://github.com/ediney-magalhaes)

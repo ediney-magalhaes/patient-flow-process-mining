@@ -113,10 +113,10 @@ analítica contínua.
   `dbutils.library.restartPython()`. Versão: 2.7.22.4. Dependências
   resolvidas automaticamente: networkx 3.6.1, graphviz 0.21, lxml 6.1.1,
   cvxopt 1.3.3. Fallback local descartado.
-- [ ] Adicionar `pm4py` às dependências do projeto
-- [ ] Criar notebook de descoberta de processo
-- [ ] Definir algoritmos iniciais: Inductive Miner para descoberta, alignment para conformance
-- [ ] Documentar conceitos teóricos em `docs/05-process-mining/`
+- [x] Adicionar `pm4py` às dependências do projeto (`requirements.txt` e `%pip install` no notebook)
+- [x] Criar notebook de descoberta de processo (`03_process_mining.ipynb`)
+- [x] Definir algoritmos iniciais: Inductive Miner para descoberta (ADR-0009) e token replay para conformance (ADR-0010). Alignment ficou como alternativa não implementada
+- [x] Documentar conceitos teóricos em `docs/05-process-mining/`
 ---
  
 ## Referências
@@ -133,3 +133,4 @@ analítica contínua.
 |---|---|---|
 | 2026-04-26 | Criação | @ediney-magalhaes |
 | 2026-06-15 | Validação técnica concluída — PM4Py 2.7.22.4 instalado no serverless | @ediney-magalhaes |
+| 2026-10-06 | Implementação atualizada: conformance por token replay (ADR-0010), em vez de alignment | @ediney-magalhaes |

@@ -83,3 +83,18 @@ Sprint 0.
 está pronto para uso — é fácil esquecer de popular algo que não bloqueia
 nenhum pipeline no curto prazo, até o dia em que a análise que depende dele
 aparece.
+
+
+## A chave do caso decide o que a rede consegue enxergar
+
+Depois de publicar as análises de handover e subcontracting, a Página 4 mostrou que faltava a passagem mais importante do hospital: Emergência → Internação. O motivo era a chave do caso. As análises agrupavam por `case_id`, que identifica o caso dentro de uma fonte, e nenhum `case_id` continha eventos de emergência e de internação ao mesmo tempo. Com `case_id_jornada`, 445 jornadas continham. Trocar a chave levou o handover de 216 para 263 combinações, e a passagem passou a ter 370 transições (RQ-016).
+
+O erro não deu sinal. A rede estava cheia, os exames concentravam o volume e tudo parecia plausível, só faltava uma aresta que o negócio esperava.
+
+**Lição:** antes de publicar uma rede, listar as arestas que o negócio espera ver e conferir se existem. Em Organizational Mining, a chave do caso define quais atores podem se encontrar, e uma rede construída sobre fragmentos de caso mostra só os atores que coexistem dentro de cada fragmento.
+
+## Ator que é tabela de origem, e não setor físico
+
+`source` é a tabela de onde o evento vem. "Alta" e "Internação" são registros de sistemas diferentes, e não locais do hospital. Por isso "Alta → Internação" (708) parecia erro, e era a sequência de registros de alta do mesmo episódio. Isso também mostrou o limite da rede: as idas e vindas de UTI vivem dentro de Movimentações e não aparecem no handover, porque só entram mudanças de `source`.
+
+**Lição:** perguntar o que o ator representa no mundo real antes de ler o resultado, e o que a rede não enxerga por construção.

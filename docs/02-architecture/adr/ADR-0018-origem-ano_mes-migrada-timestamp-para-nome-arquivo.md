@@ -49,3 +49,15 @@ Ver as quatro alternativas descartadas na seção Contexto, com a justificativa 
 - Reingestão completa exigida: tabelas Bronze dropadas, checkpoints do Auto Loader limpos (Auto Loader rastreia por caminho de arquivo, um arquivo com nome novo não é reconhecido como "já processado", mas também não substitui a linha antiga automaticamente; sem dropar a tabela, o resultado seria duplicação de volume, não correção).
 - Toda ingestão mensal futura depende, a partir de agora, do nome do arquivo seguir o padrão exato, se um arquivo for renomeado sem esse sufixo, ou o padrão mudar sem atualizar o regex de extração, a anonimização falha explicitamente (por design), não silenciosamente.
 - `gold_event_log.ano_mes` agora reflete o mês do lote de ingestão em todas as 7 fontes `gold_events_*`, íntegro, sem fragmentos residuais de outros meses, confirmado por consulta direta pós-correção (`select ano_mes, count(*) from gold_event_log group by ano_mes` retornando uma única linha, `2026-03`).
+
+
+
+---
+
+## Nota (06/10/2026): a correção também precisava cobrir o notebook de Process Mining
+
+A correção deste ADR cobriu o `gold_transformation.py` e a anonimização, e o `gold_event_log` passou a ter só o `ano_mes` de lote. Mas a célula do `pm4py.format_dataframe` em `03_process_mining.ipynb` recalculava `df_formatado["ano_mes"]` a partir do timestamp de cada evento, o que reintroduzia o problema nas tabelas calculadas no notebook: `gold_sna_handover` tinha 58 registros em `2026-04`, com um único mês de ingestão (RQ-015).
+
+A linha foi removida, e o `ano_mes` de lote vindo da Gold passou a ser reconvertido para texto `AAAA-MM`, porque o PM4Py o transforma em timestamp.
+
+**Regra:** corrigir a origem de uma coluna em uma camada exige buscar a mesma coluna nas camadas e notebooks seguintes que a recalculam. As demais tabelas do notebook (`gold_bottleneck`, `gold_performance_spectrum`, `gold_dfg_macro`, `gold_variant_analysis`) derivam `ano_mes` de `data_referencia` e não foram afetadas.
