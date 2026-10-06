@@ -93,6 +93,17 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - `gold_patient_journey`: nova coluna `qtd_reentradas_uti` (entradas na
   UTI após a primeira, dentro da mesma internação), base para medir
   reentrada na UTI na Página 4 do Dashboard
+- Dashboard "Mapa Digital do Fluxo do Paciente", página "Handover"
+  (Página 4) concluída e publicada, duas camadas: "Jornada por porta de
+  entrada" (desenho Custom Viz Vega-Lite com fluxo principal, desvios e
+  apoio diagnóstico, para as portas Emergência, Cirurgia Eletiva e
+  Internação Clínica) e "Handover entre processos" (matriz de handover,
+  heatmap de percentual da saída de cada processo, sequências A → B → A e
+  gráfico de especialidade de destino por passagem); filtros: Período,
+  Porta de entrada, Especialidade e Passagem; datasets: `espinha_arestas`,
+  `handover_matriz`, `handover_pct`, `handover_especialidade`,
+  `subcontracting_sequencias`, `dim_porta` e `dim_passagem`; documentado
+  em `docs/06-deliverables/dashboard-handover.md`
 
 #### Corrigido
 
@@ -378,7 +389,8 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   - **Pendência técnica não resolvida:** viabilidade de embutir o DFG (renderizado via networkx/matplotlib, mesmo padrão usado no SNA) como imagem estática dentro do AI/BI Dashboard ainda não validada, Databricks AI/BI não executa Python nativamente. Primeira tarefa da construção desta página, não decisão fechada.
 - Página 3 — Conformidade → fitness/precision por fonte, tendência por `ano_mes` → fonte: `gold_conformance` *(corrigido, roadmap anterior apontava incorretamente para `gold_patient_journey`)* — ~~concluída e publicada~~ (ver `docs/06-deliverables/dashboard-conformidade.md`)
   - **Correção de arquitetura (22/09/2026):** metodologia de Conformance Checking revisada de self-referential (modelo descoberto do próprio mês testado) para modelo de referência separado (ano anterior fechado, com fallback), motivada pela construção desta página — ver ADR-0019 e RQ-014
-- Página 4 — Handover / SNA → sociograma setor↔setor (grafo, `gold_sna_handover` #1) + ranking de subcontracting por especialidade (`gold_sna_subcontracting` #3) → fontes: `gold_sna_handover` + `gold_sna_subcontracting` *(corrigido — roadmap anterior apontava incorretamente para `gold_events_emergencia`, tabela bruta)*
+- Página 4 — Handover / SNA → sociograma setor↔setor (grafo, `gold_sna_handover` #1) + ranking de subcontracting por especialidade (`gold_sna_subcontracting` #3) → fontes: `gold_sna_handover` + `gold_sna_subcontracting` + `gold_patient_journey` — ~~concluída e publicada~~ (ver `docs/06-deliverables/dashboard-handover.md`)
+  - **Escopo revisado (02/10/2026):** a página passou a ter duas camadas, jornada por porta de entrada (fluxo principal, desvios e apoio diagnóstico, a partir de `gold_patient_journey`) e handover entre processos. O sociograma foi substituído por matriz de adjacência, porque o AI/BI não tem visual nativo de grafo.
 - Página 5 (nova) — Variantes de Processo → ranking + gráfico de Pareto (frequência + % cobertura acumulada) → fonte: `gold_variant_analysis`
 - **Fora do escopo do Dashboard, decisão consciente:** `gold_data_quality` — tabela de governança de dado (cobertura de timestamp), audiência de TI/operação, não de gestão executiva. Sem tabela nova nem página alocada; revisar escopo se a diretoria pedir explicitamente.
 - Todos os visuais projetados com eixo temporal pronto para receber meses subsequentes — mesmo que no momento da entrega só exista março/2026
