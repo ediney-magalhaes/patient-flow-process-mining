@@ -28,8 +28,8 @@ gráficos por seção (tendência mensal + distribuição por categoria).
 |---|---|---|
 | Total de Atendimentos | `gold_patient_journey` | `COUNT DISTINCT(cd_atendimento)` |
 | Taxa de Conversão (%) | `gold_patient_journey` | `AVG(Fl Conversao)`, formato % |
-| Taxa de Conversão Cirúrgica (%) | `gold_patient_journey` | `AVG(Has Cirurgia Numerico)`, formato % |
-| Taxa de Conversão UTI (%) | `gold_patient_journey` | `AVG(Has Uti Numerico)`, formato % |
+| Conversão cirúrgica (% dos atendimentos do PA) | `gold_patient_journey` | `AVG(Has Cirurgia Numerico)`, formato %. Base: todos os atendimentos do PA (6.236 em mar/2026, resultado 2,74%) |
+| Conversão UTI (% dos atendimentos do PA) | `gold_patient_journey` | `AVG(Has Uti Numerico)`, formato %. Base: todos os atendimentos do PA (resultado 2,98%) |
 | Tempo até o Leito (h) | `gold_patient_journey` | `AVG(Duracao Internacao Leito Horas)` |
 | Tempo Médio da Jornada (h) | `gold_patient_journey` | `AVG(Duracao Total Horas)` |
 
@@ -53,8 +53,8 @@ um mês específico está selecionado nos cards.
 |---|---|---|
 | Total de Internações | `gold_patient_journey` | `COUNT DISTINCT(cd_internacao)` |
 | Internações via Emergência (%) | `gold_patient_journey` | `AVG(Is Internacao Via Emergencia)`, formato % |
-| Internações Cirúrgicas (%) | `gold_patient_journey` | `AVG(Has Cirurgia Numerico)`, formato % |
-| Internações c/ UTI (%) | `gold_patient_journey` | `AVG(Has Uti Numerico)`, formato % |
+| Internações cirúrgicas (% das internações) | `gold_patient_journey` | `AVG(Has Cirurgia Numerico)`, formato %. Base: todas as internações do hospital (867 em mar/2026, resultado 61,59%) |
+| Internações com UTI (% das internações) | `gold_patient_journey` | `AVG(Has Uti Numerico)`, formato %. Base: todas as internações do hospital (resultado 28,72%) |
 | Tempo Médio até o Leito (h) | `gold_patient_journey` | `AVG(Duracao Internacao Leito Horas)` |
 
 **Gráfico "Duração Média por Tipo de Jornada (Internação)"** — barra,
@@ -80,6 +80,8 @@ tempo até a cirurgia difere fortemente por origem — 11,2h para eletiva vs.
 Gargalos). Um card de "Tempo Médio de UTI" foi descartado por medir
 permanência dentro da UTI, não tempo até chegar nela, fora do propósito
 pretendido.
+
+**Bases dos percentuais de cirurgia e UTI (06 a 09/10/2026).** Os cards da seção Emergência medem conversão sobre todos os atendimentos do PA (2,74% e 2,98%). Os da seção Internação medem a proporção dentre as internações do hospital (61,59% e 28,72%), que incluem as sem passagem pela emergência. A Página 4 usa uma terceira base, os internados da porta Emergência (41,2% de UTI), por isso os rótulos dos cards informam a base. Nenhum cálculo mudou, só os títulos.
 
 ---
 
