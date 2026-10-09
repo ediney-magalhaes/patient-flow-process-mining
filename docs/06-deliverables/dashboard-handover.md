@@ -143,6 +143,8 @@ Dois banners de seção (caixas de texto com fundo azul-claro): "Jornada por por
 | Gráfico "Reentrada na UTI por tipo de jornada" | Mostrava 8,2% na cirúrgica via emergência, enquanto o desenho deixa essas reentradas de fora de propósito (ver RQ-017) | Desenho |
 | Gráfico "Apoio diagnóstico por tipo de jornada" | Bases diferentes das do desenho (36,2% contra 39,6%) | Desenho |
 
+**Funil avaliado e descartado (06/10/2026).** Nem na Página 1 nem na Página 4. Só a cadeia emergência, internação e alta final é de subconjuntos encadeados (6.235, 452 e 358 em mar/2026). Cirurgia e UTI são ramos paralelos, e um funil sugeriria ordem e perda que não existem. A conversão (7,2%) já está nos cards da Página 1 e a passagem no desenho da Página 4. A alta final sofre do viés de internações sem alta no corte do mês.
+
 ---
 
 ## Datasets SQL do Dashboard
@@ -495,7 +497,6 @@ Todos os visuais previstos para a página foram construídos. O que segue aberto
 
 - **Reentrada na UTI nas jornadas cirúrgicas.** O desenho não mostra reentrada na Cirurgia Eletiva (2 jornadas com `qtd_reentradas_uti > 0`, ambas UTI pós-operatória já contada no ramo "UTI após a cirurgia"). Na Emergência, as 6 reentradas de pacientes cirúrgicos ficaram fora, porque não se separa UTI pós-operatória esperada de retorno real (4 dessas 6 têm alguma entrada pós-operatória). Separar exige contar entradas por paciente depois da cirurgia.
 - **Filtro de especialidade das sequências.** Não reage por decisão (ver Estrutura da página). Se for necessário, criar filtro próprio, "especialidade do processo intermediário".
-- **Funil.** Avaliar se alguma página abriga um gráfico de funil. Hipótese ainda não verificada: a Página 1 (KPIs de Jornada), onde emergência, internação, cirurgia e UTI são subconjuntos encadeados.
 
 ### Para discussão clínica
 

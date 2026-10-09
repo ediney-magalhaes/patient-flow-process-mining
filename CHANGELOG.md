@@ -120,6 +120,15 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   do caso em `organizational-mining.md`
 - `docs/03-data/data-dictionary.md`: entradas de `vw_dim_source` e
   `vw_dim_especialidade`
+- `gold_variant_analysis`: nova coluna `journey_type` (tipo de jornada,
+  vindo de `gold_patient_journey`; `sem_jornada_classificada` quando a
+  jornada não existe lá) e ranking e cobertura calculados dentro de cada
+  mês e tipo
+- `docs/07-operations/ingestao-historico.md`: checklist da carga mensal e
+  da ingestão do histórico, reunindo em um único lugar as conferências
+  que dependem de novos meses; `README.md` da pasta atualizado
+- `docs/05-process-mining/variants.md` reescrito para o cálculo por
+  jornada
 
 #### Corrigido
 
@@ -203,6 +212,17 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   duração em UTI) passaram a considerar só entradas vindas de fora da UTI.
   Jornadas com "reentrada" caíram de 228 para 15; `has_uti` e os KPIs da
   Página 1 não foram afetados
+- RQ-019: `gold_variant_analysis` era calculada por `case_id`, e as
+  maiores variantes eram fragmentos de uma fonte (3 das 10 maiores só
+  de exame de imagem), com exames de pacientes externos e repetições de
+  exame multiplicando variantes. Passou a ser calculada por
+  `case_id_jornada`, com jornadas só de exame de imagem externo
+  excluídas (625 em mar/2026) e repetições consecutivas colapsadas;
+  variantes de 2.359 para 1.525 (1.531 linhas com `journey_type`). Das
+  231 jornadas sem correspondência em `gold_patient_journey`, 177 têm
+  alta e/ou movimentações sem internação na base, 52 são de cirurgia
+  fora do escopo e 2 são de emergência convertida sem internação
+  (RQ-011)
 
 #### Sprint 3 — Process Mining (concluído)
 

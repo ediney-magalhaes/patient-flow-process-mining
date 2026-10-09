@@ -779,3 +779,57 @@ A Página 4 mostrava nomes brutos de especialidade: `MEDICO PEDIATRA` e `PEDIATR
 **Verificação:** sem filtro, os totais dos datasets não mudaram. Em `Emergência → Exames de Imagem`, `PEDIATRIA` passou a 159 (146 + 13) e `CARDIOLOGIA` a 168 (166 + 2), cada uma em uma linha só. Com o filtro de Especialidade em `PEDIATRIA`, a matriz e o heatmap de percentual responderam. Todas as especialidades do `gold_sna_handover` existem no `dim_especialidade`.
 
 **Limitação:** a view cobre só 6 especialidades, e as outras 25 seguem com o nome bruto. `GENERALISTA` e `CLINICA MEDICA` continuam separadas, e só a área assistencial pode dizer se são a mesma coisa.
+
+
+
+
+
+## RQ-019 — Variantes calculadas por `case_id`, com exames externos e repetições de atividade
+
+- **Tabela afetada:** `gold_variant_analysis`
+- **Célula afetada:** gravação de `gold_variant_analysis` na seção Variant Analysis de `03_process_mining.ipynb`
+- **Data do achado:** 2026-10-06 (corrigido em 2026-10-09)
+- **Contexto:** construção da Página 5 do Dashboard (Variantes)
+
+### Achado
+
+As 10 maiores variantes de `gold_variant_analysis` (2.359 variantes, 7.643 casos em mar/2026) não representavam jornadas de paciente:
+
+1. **Chave.** O `event_log` do notebook é montado por `case_id`, então os exames de imagem apareciam como casos separados da emergência, sem nenhuma passagem por internação ou cirurgia (mesmo defeito da RQ-016).
+2. **Exames externos.** Três das dez maiores variantes eram só exame de imagem (de "Prescrição do Exame de Imagem" até "Término"), sem evento de emergência. A base de imagem inclui pacientes externos, que nunca tiveram atendimento nem internação no hospital.
+3. **Repetições.** Cada quantidade de exames repetidos gerava uma variante nova. O mesmo caminho com 1, 2 ou 3 pedidos, coletas e laudos de laboratório virava variantes diferentes (uma das maiores tinha 26 eventos).
+
+### Decisão
+
+A variante passa a ser calculada sobre `df_formatado`, por `case_id_jornada`, ordenando por horário:
+
+- **Jornadas só de exame de imagem externo são excluídas.** A regra é a combinação: a única fonte da jornada é `silver_exames_imagem` **e** o `case_type` é `Externo`. Exame de paciente internado ou atendido que não se ligou a nenhuma jornada continua visível como sinal de problema.
+- **Repetições consecutivas da mesma atividade são colapsadas** em uma. Repetições não consecutivas (pedido, coleta e laudo, e depois outro pedido) permanecem.
+- **A ordem dos eventos não é normalizada.** "Alta da Emergência → Fim da Consulta Médica" e "Fim da Consulta Médica → Alta da Emergência" continuam como variantes distintas, porque a alta antes do encerramento da consulta é a prática real dos médicos, e não erro de registro. Fica como característica conhecida do processo.
+
+`total_eventos` passa a contar a sequência **colapsada**.
+
+### Resultado (mar/2026)
+
+| Medida | Por `case_id` | Por jornada, colapsado | Sem exames externos |
+|---|---|---|---|
+| Unidades | 7.643 | 7.202 | 6.577 |
+| Variantes | 2.359 | 1.586 | 1.525 |
+| Maior variante | 2.015 | 1.949 | 1.949 (29,6%) |
+| Variantes de 1 caso | 2.008 (85,1%) | 1.375 (86,7%) | 1.338 (87,7%) |
+
+Foram excluídas 625 jornadas, todas `Externo` (8,7% das 7.202).
+
+### Limitações
+
+- **Jornadas sem nenhum timestamp (310).** O `gold_event_log` tem 7.512 valores de `case_id_jornada`, e a análise parte de 7.202. As 310 de diferença são jornadas em que nenhum evento tem timestamp (confirmado por consulta em 09/10/2026), e o `pm4py.format_dataframe` as descarta por inteiro. É dado ausente na origem, como na RQ-004, e não perda de pipeline.
+- **Jornadas sem correspondência em `gold_patient_journey` (231, `journey_type = sem_jornada_classificada`).** Existem no `gold_event_log`, com timestamp, e não em `gold_patient_journey`. Nenhuma tem internação em `silver_internacoes` (confirmado em 09/10/2026). Quatro populações:
+  - **177 com alta e/ou movimentações de leito**, 78 delas só de alta (a 9ª maior variante, "Alta médica → Alta Hospitalar"). Hipótese: altas de internações anteriores a março. Para confirmar, na ingestão do histórico, conferir se essas internações aparecem em meses anteriores.
+  - **52 de cirurgia** sem emergência nem internação (29 com exame de imagem, 23 só cirurgia). Estão fora do escopo do `gold_patient_journey` (ADR-0011).
+  - **2 de emergência convertida** (`fl_conversao = 1`) sem internação em `silver_internacoes` (RQ-011). A chave do `gold_patient_journey` (número do atendimento) difere da do event log (`atend_internacao`), e por isso não se encontram.
+- A cauda continua longa (87,7% das variantes com um único caso). É característica do domínio: cada paciente tem um conjunto próprio de exames e etapas.
+- Os números são de um único mês. A distribuição vai mudar com o histórico.
+
+### Ação futura recomendada
+
+Ao calcular uma análise sobre "caminhos", conferir se as maiores variantes representam o que o negócio entende por caso. Fragmentos de uma fonte, ou populações fora do escopo (como exames externos), aparecem no topo do ranking.

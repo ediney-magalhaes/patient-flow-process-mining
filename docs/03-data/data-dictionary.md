@@ -407,9 +407,9 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 14 colunas.
 ### gold_variant_analysis
 
 - **Schema:** `hospital_santa_rosa.gold_fluxo`
-- **Granularidade:** 1 linha por variante distinta de processo × mês (`ano_mes`)
-- **Origem:** `gold_event_log`, processado via PM4Py no notebook `03_process_mining.ipynb`
-- **Volume referência:** 2.016 linhas (mar/2026, 7.643 traces totais)
+- **Granularidade:** 1 linha por variante distinta de jornada × mês (`ano_mes`) × tipo de jornada (`journey_type`). A variante é a sequência de atividades da jornada (`case_id_jornada`), com repetições consecutivas colapsadas
+- **Origem:** `gold_event_log`, processado no notebook `03_process_mining.ipynb` a partir de `df_formatado`, por `case_id_jornada`. Jornadas só de exame de imagem externo (`case_type = Externo`) são excluídas (ver RQ-019)
+- **Volume referência:** 1.525 linhas (mar/2026, 6.577 jornadas, medido em 09/10/2026)
 - **Atualização:** manual — recalculada e sobrescrita quando o notebook de Process
   Mining é executado, não faz parte do pipeline `gold_transformations`
 - **Correção (18/08/2026):** `ano_mes` passou a ser derivado de `data_referencia`
@@ -417,16 +417,18 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 14 colunas.
   de execução do notebook. Ranking (`rank`) passou de global para calculado
   dentro de cada `ano_mes` — permite comparar top variantes mês a mês em vez
   de um ranking único acumulado.
+- **Correção (09/10/2026):** a variante passou a ser calculada por `case_id_jornada`, e não mais por `case_id`. Exames de imagem de pacientes externos (jornadas só de imagem com `case_type = Externo`, 625 em mar/2026) foram excluídos, e repetições consecutivas da mesma atividade foram colapsadas. Antes, as maiores variantes eram fragmentos de uma fonte e a quantidade de exames repetidos multiplicava as variantes (2.359 antes, 1.525 depois). Ver RQ-019.
 - **Colunas:**
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
-| `rank` | bigint | Posição da variante no ranking de frequência **dentro do seu `ano_mes`** (1 = mais frequente naquele mês) |
+| `rank` | bigint | Posição da variante no ranking de frequência **dentro do seu `ano_mes` e do seu `journey_type`** (1 = mais frequente naquele mês e tipo) |
 | `sequencia` | string | Sequência de atividades da variante, separadas por `→` |
-| `total_eventos` | bigint | Número total de eventos da sequência, contando repetições (ex.: 3 exames laboratoriais geram 3 pedidos, 3 coletas e 3 laudos) |
+| `total_eventos` | bigint | Número de atividades da sequência da variante, depois de colapsar repetições consecutivas (ex.: 3 pedidos de exame seguidos contam como 1). Repetições não consecutivas continuam contando. Ver RQ-019 |
 | `ano_mes` | string | Mês de referência da variante, derivado de `data_referencia` (evento clínico real, não administrativo) |
+| `journey_type` | string | Tipo de jornada, vindo de `gold_patient_journey` pela chave `coalesce(cd_internacao, cd_atendimento)`. Vale `sem_jornada_classificada` quando a jornada existe no `gold_event_log` e não existe em `gold_patient_journey` (231 em mar/2026, ver RQ-019) |
 | `total_casos` | bigint | Número de casos (traces) que seguem exatamente essa variante, naquele mês |
-| `cobertura_perc` | double | Percentual de casos cobertos por essa variante em relação ao total de casos daquele `ano_mes` |
+| `cobertura_perc` | double | Percentual de casos cobertos por essa variante em relação ao total de jornadas daquele `ano_mes` e `journey_type` |
 
 ### gold_performance_spectrum
 
