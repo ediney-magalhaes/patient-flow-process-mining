@@ -53,36 +53,81 @@ from pyspark.sql.window import Window
 def gold_events_movimentacoes():
 
     # leitura da tabela silver movimentacoes — já traz ano_mes de lote (ADR-0018)
-    df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_movimentacoes")
+    df_silver = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_movimentacoes")
+
+    # unidades renomeadas ao longo do tempo: GINECOLOGIA/OBSTETRICIA era o nome
+    # antigo (antes de 2025) da unidade TERREO — unifica no nome atual
+    def normaliza_unidade(coluna):
+        unidade = F.trim(coluna)
+        return F.when(unidade == "GINECOLOGIA/OBSTETRICIA", F.lit("TERREO")).otherwise(unidade)
+
+    # mapa leito → unidade, calculado POR MÊS DE LOTE (um leito pode mudar de
+    # unidade entre anos). Em TRANSFER. DE a UNIDADE é a do destino (entrada);
+    # em TRANSFER. PARA é a da origem (saída). Lê a Silver antes da deduplicação,
+    # para usar as duas linhas do mesmo evento físico
+    mapa_unidade = (
+        df_silver.filter(F.col("TIPO") == "TRANSFER. DE")
+            .select("ano_mes", F.trim(F.col("DESTINO")).alias("leito"),
+                    normaliza_unidade(F.col("UNIDADE")).alias("unidade"))
+        .unionByName(
+            df_silver.filter(F.col("TIPO") == "TRANSFER. PARA")
+                .select("ano_mes", F.trim(F.col("ORIGEM")).alias("leito"),
+                        normaliza_unidade(F.col("UNIDADE")).alias("unidade"))
+        )
+        .filter(F.col("leito").isNotNull() & (F.col("leito") != ""))
+        .groupBy("ano_mes", "leito")
+        .agg(F.max("unidade").alias("unidade"))
+    )
+    mapa_origem = mapa_unidade.select(
+        F.col("ano_mes").alias("ano_mes_o"), F.col("leito").alias("leito_o"), F.col("unidade").alias("unidade_o"))
+    mapa_destino = mapa_unidade.select(
+        F.col("ano_mes").alias("ano_mes_d"), F.col("leito").alias("leito_d"), F.col("unidade").alias("unidade_d"))
 
     # deduplica eventos de transferência — TRANSFER. DE e TRANSFER. PARA
     # descrevem o mesmo evento físico (mesmo timestamp, mesma origem/destino),
     # registrados duas vezes na origem; mantém só uma ocorrência por evento
-    df = df.dropDuplicates(["CD_INTERNACAO", "DT_HR_MOVIMENTACAO", "ORIGEM", "DESTINO"])
+    df = df_silver.dropDuplicates(["CD_INTERNACAO", "DT_HR_MOVIMENTACAO", "ORIGEM", "DESTINO"])
 
-    # renomeira colunas existentes para o schema canônico
+    # origem e destino em texto, "Externo" quando vazios
+    df = df.withColumn("origem_txt", F.coalesce(F.nullif(F.trim(F.col("ORIGEM")), F.lit("")), F.lit("Externo")))
+    df = df.withColumn("destino_txt", F.coalesce(F.nullif(F.trim(F.col("DESTINO")), F.lit("")), F.lit("Externo")))
+
+    # traduz leito para unidade, no mês do próprio evento; sem unidade no mapa,
+    # mantém o leito (ou "Externo") no nome
+    df = df.join(mapa_origem,
+                 (df["ano_mes"] == mapa_origem["ano_mes_o"]) & (df["origem_txt"] == mapa_origem["leito_o"]),
+                 "left")
+    df = df.join(mapa_destino,
+                 (df["ano_mes"] == mapa_destino["ano_mes_d"]) & (df["destino_txt"] == mapa_destino["leito_d"]),
+                 "left")
+    df = df.withColumn("unidade_origem", F.coalesce(F.col("unidade_o"), F.col("origem_txt")))
+    df = df.withColumn("unidade_destino", F.coalesce(F.col("unidade_d"), F.col("destino_txt")))
+
+    # renomeia colunas existentes para o schema canônico
     df = df.withColumnRenamed("CD_INTERNACAO", "case_id")
+
+    # activity: nome original, com o leito (inalterado)
     df = df.withColumn(
         "activity",
         F.when(F.col("TIPO").isin("TRANSFER. DE", "TRANSFER. PARA"),
-            F.concat(
-                F.lit("TRANSFERÊNCIA: "),
-                F.coalesce(F.nullif(F.trim(F.col("ORIGEM")), F.lit("")), F.lit("Externo")),
-                F.lit(" → "),
-                F.coalesce(F.nullif(F.trim(F.col("DESTINO")), F.lit("")), F.lit("Externo"))
-            )
+            F.concat(F.lit("TRANSFERÊNCIA: "), F.col("origem_txt"), F.lit(" → "), F.col("destino_txt"))
         ).otherwise(
-            F.concat(
-                F.col("TIPO"),
-                F.lit(": "),
-                F.coalesce(F.nullif(F.trim(F.col("ORIGEM")), F.lit("")), F.lit("Externo")),
-                F.lit(" → "),
-                F.coalesce(F.nullif(F.trim(F.col("DESTINO")), F.lit("")), F.lit("Externo"))
-            )
+            F.concat(F.col("TIPO"), F.lit(": "), F.col("origem_txt"), F.lit(" → "), F.col("destino_txt"))
         )
     )
+
+    # activity_unidade: mesmo nome, com a unidade no lugar do leito (usada nas variantes)
+    df = df.withColumn(
+        "activity_unidade",
+        F.when(F.col("TIPO").isin("TRANSFER. DE", "TRANSFER. PARA"),
+            F.concat(F.lit("TRANSFERÊNCIA: "), F.col("unidade_origem"), F.lit(" → "), F.col("unidade_destino"))
+        ).otherwise(
+            F.concat(F.col("TIPO"), F.lit(": "), F.col("unidade_origem"), F.lit(" → "), F.col("unidade_destino"))
+        )
+    )
+
     df = df.withColumnRenamed("DT_HR_MOVIMENTACAO", "timestamp")
-    df = df.withColumnRenamed("UNIDADE", "location")
+    df = df.withColumn("location", normaliza_unidade(F.col("UNIDADE")))
 
     # adiciona colunas fixas do schema canônico
     df = df.withColumn("lifecycle", F.lit("complete"))
@@ -95,17 +140,16 @@ def gold_events_movimentacoes():
     # ano_mes NÃO é recalculado aqui — a coluna de lote já veio da Silver (ADR-0018)
 
     # data pura de referência — DT_HR_MOVIMENTACAO é o único timestamp
-    # disponível nesta fonte (DATA/HORA originais foram removidas no Silver),
-    # truncada para eliminar risco de virada de dia/mês por hora de fronteira
+    # disponível nesta fonte, truncada para eliminar risco de virada de dia/mês
     df = df.withColumn("data_referencia", F.to_date(F.col("timestamp")))
     df = df.withColumn("case_id_jornada", F.col("case_id"))
 
-    # seleciona apenas as colunas do schema canônico na ordem correta
+    # seleciona as colunas do schema canônico, mais activity_unidade
     return df.select(
         "case_id", "activity", "timestamp", "lifecycle",
         "event_type", "case_type", "outcome", "resource",
         "especialidade", "location", "source", "ano_mes",
-        "data_referencia", "case_id_jornada"
+        "data_referencia", "case_id_jornada", "activity_unidade"
     )
 
 @dlt.table(
@@ -525,13 +569,17 @@ def gold_event_log():
     df_internacoes = dlt.read("gold_events_internacoes")
     df_movimentacoes = dlt.read("gold_events_movimentacoes")
 
-    # UNION ALL com unionByName
-    df = df_altas.unionByName(df_cirurgias) \
-                 .unionByName(df_emergencia) \
-                 .unionByName(df_imagem) \
-                 .unionByName(df_laborarorio)\
-                 .unionByName(df_internacoes) \
-                 .unionByName(df_movimentacoes)
+    # UNION ALL com unionByName; só gold_events_movimentacoes tem activity_unidade,
+    # então allowMissingColumns preenche com nulo nas outras seis fontes
+    df = df_altas.unionByName(df_cirurgias, allowMissingColumns=True) \
+                 .unionByName(df_emergencia, allowMissingColumns=True) \
+                 .unionByName(df_imagem, allowMissingColumns=True) \
+                 .unionByName(df_laborarorio, allowMissingColumns=True) \
+                 .unionByName(df_internacoes, allowMissingColumns=True) \
+                 .unionByName(df_movimentacoes, allowMissingColumns=True)
+
+    # activity_unidade: nas movimentações traz a unidade no lugar do leito; nas demais fontes é igual a activity
+    df = df.withColumn("activity_unidade", F.coalesce(F.col("activity_unidade"), F.col("activity")))
     
     # cálculo da duração de tempo entre cada evento
     janela_caso = Window.partitionBy("case_id")
