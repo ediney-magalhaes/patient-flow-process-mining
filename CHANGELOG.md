@@ -157,6 +157,17 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - `docs/05-process-mining/event-log.md` atualizado com `activity_unidade`
   e a seção de limitações; `docs/08-learning/custom-viz-vega-lite-no-aibi.md`
   e `docs/07-operations/ingestao-historico.md` com os itens desta rodada
+- `gold_patient_journey`: nova coluna `internou_em_uti` (o atendimento
+  internou em UTI: o primeiro leito real da internação é de UTI, ou a
+  internação foi registrada em leito de UTI), com o primeiro leito lido
+  nas movimentações antes da deduplicação, porque nos pares
+  `TRANSFER. DE` e `TRANSFER. PARA` a unidade difere entre as duas linhas;
+  `has_uti` mantido para a passagem pela UTI (ADR-0022)
+- ADR-0022: `internou_em_uti` como coluna separada do `has_uti`
+- `docs/06-deliverables/validacao-dashboard.md`: validação do dashboard
+  com março/2026, cartão a cartão, contra consultas independentes
+  (Silver, Gold e BigQuery), iniciada pela Página 1
+- `docs/07-operations/ingestao-historico.md` com o item dos prefixos de UTI
 
 
 #### Corrigido
@@ -258,6 +269,11 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   caminhos diferentes só pelo leito; a coluna `activity_unidade` passou a
   trazer a unidade no lugar do leito (111 nomes distintos), sem alterar
   `activity`, e o `gold_event_log` exigiu Full Refresh
+- Cartão "Conversão UTI (% dos atendimentos do PA)" da Página 1 media a
+  passagem pela UTI em qualquer momento da internação (`has_uti`, 2,98%),
+  e não o atendimento que internou em UTI; passou a usar `internou_em_uti`
+  (2,73%, 170 de 6.236 em mar/2026), com o campo `Internou Em Uti Numerico`
+  no Data Model (ADR-0022)
 
 
 #### Sprint 3 — Process Mining (concluído)

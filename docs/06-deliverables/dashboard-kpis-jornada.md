@@ -29,7 +29,7 @@ gráficos por seção (tendência mensal + distribuição por categoria).
 | Total de Atendimentos | `gold_patient_journey` | `COUNT DISTINCT(cd_atendimento)` |
 | Taxa de Conversão (%) | `gold_patient_journey` | `AVG(Fl Conversao)`, formato % |
 | Conversão cirúrgica (% dos atendimentos do PA) | `gold_patient_journey` | `AVG(Has Cirurgia Numerico)`, formato %. Base: todos os atendimentos do PA (6.236 em mar/2026, resultado 2,74%) |
-| Conversão UTI (% dos atendimentos do PA) | `gold_patient_journey` | `AVG(Has Uti Numerico)`, formato %. Base: todos os atendimentos do PA (resultado 2,98%) |
+| Conversão UTI (% dos atendimentos do PA) | `gold_patient_journey` | `AVG(Internou Em Uti Numerico)`, formato %. Base: todos os atendimentos do PA. Conta o atendimento que internou em UTI: o primeiro leito real da internação é de UTI, ou a internação foi registrada em leito de UTI (resultado 2,73% em mar/2026, ver `validacao-dashboard.md`) |
 | Tempo até o Leito (h) | `gold_patient_journey` | `AVG(Duracao Internacao Leito Horas)` |
 | Tempo Médio da Jornada (h) | `gold_patient_journey` | `AVG(Duracao Total Horas)` |
 
@@ -81,7 +81,7 @@ Gargalos). Um card de "Tempo Médio de UTI" foi descartado por medir
 permanência dentro da UTI, não tempo até chegar nela, fora do propósito
 pretendido.
 
-**Bases dos percentuais de cirurgia e UTI (06 a 09/10/2026).** Os cards da seção Emergência medem conversão sobre todos os atendimentos do PA (2,74% e 2,98%). Os da seção Internação medem a proporção dentre as internações do hospital (61,59% e 28,72%), que incluem as sem passagem pela emergência. A Página 4 usa uma terceira base, os internados da porta Emergência (41,2% de UTI), por isso os rótulos dos cards informam a base. Nenhum cálculo mudou, só os títulos.
+**Bases dos percentuais de cirurgia e UTI (06 a 20/10/2026).** Os cards da seção Emergência medem conversão sobre todos os atendimentos do PA (2,74% de cirurgia e 2,73% de UTI). O de UTI conta o atendimento que internou em UTI (`internou_em_uti`). Os da seção Internação medem a proporção dentre as internações do hospital (61,59% e 28,72%), que incluem as sem passagem pela emergência, e o de UTI conta a passagem pela UTI em qualquer momento da internação (`has_uti`). A Página 4 usa uma terceira base, os internados da porta Emergência (41,2% de UTI, também por `has_uti`). Por isso os rótulos dos cards informam a base. Em 09/10/2026 mudaram só os títulos. Em 20/10/2026 o cálculo do card de UTI da Emergência passou de `has_uti` para `internou_em_uti` (ver `validacao-dashboard.md`).
 
 ---
 
@@ -193,6 +193,7 @@ expressões calculadas em tempo de consulta, específicas do Dashboard.
 | `Fl Evasao` | `source.fl_evasao` | Idem |
 | `Has Cirurgia Numerico` | `CASE WHEN source.has_cirurgia THEN 1 ELSE 0 END` | Converte boolean para 0/1, permitindo `AVG` (proporção) — o Data Model não suporta `AVG` direto sobre boolean |
 | `Has Uti Numerico` | `CASE WHEN source.has_uti THEN 1 ELSE 0 END` | Idem, para `has_uti` |
+| `Internou Em Uti Numerico` | `CASE WHEN source.internou_em_uti THEN 1 ELSE 0 END` | Converte `internou_em_uti` para 0/1, permitindo `AVG`. Base do cartão "Conversão UTI". O `Has Uti Numerico` continua nos visuais que medem passagem pela UTI |
 | `Is Internacao Via Emergencia` | `CASE WHEN source.journey_type IN ('internacao_clinica', 'internacao_cirurgica_emergencia') THEN 1 ELSE 0 END` | Base do card "% Internações via Emergência" |
 | `Duracao Total Horas` | `source.duracao_total_min / 60` | Duração total da jornada, chegada/entrada até alta, em horas |
 | `Duracao Total Dias` | `source.duracao_total_min / 1440` | Idem, em dias — não usado nos cards finais, mantido pela investigação de permanência |
