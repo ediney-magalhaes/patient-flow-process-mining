@@ -902,6 +902,35 @@ def gold_patient_journey():
     ).groupBy("CD_INTERNACAO") \
      .agg(F.min("DT_HR_MOVIMENTACAO").alias("ts_primeiro_leito"))
 
+    # movimentações SEM deduplicar: nos pares TRANSFER. DE / TRANSFER. PARA a UNIDADE difere entre as duas linhas (973 de 973 pares em mar/2026), e dropDuplicates
+    # mantém uma delas ao acaso. Para saber o primeiro leito real é preciso as duas linhas
+    df_movim_bruta = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_movimentacoes")
+
+    # janela por internação, da movimentação mais antiga para a mais recente
+    janela_primeiro_leito_real = Window.partitionBy("CD_INTERNACAO").orderBy(F.col("DT_HR_MOVIMENTACAO").asc())
+
+    # destino é leito de UTI? mesma lista de prefixos do has_uti (uti_prefixos), em regex: ^(UTIA1|UTIA2|...)
+    # coalesce transforma o nulo (destino vazio, como na ALTA) em False
+    destino_e_uti = F.coalesce(F.col("DESTINO").rlike("^(" + "|".join(uti_prefixos) + ")"), F.lit(False))
+
+    # primeira movimentação em unidade real: descarta as unidades virtuais (unidades_extras),
+    # numera por internação e fica com a primeira (_rn = 1)
+    df_internou_uti_mov = df_movim_bruta \
+        .filter(~F.coalesce(F.col("UNIDADE"), F.lit("")).isin(unidades_extras)) \
+        .withColumn("_rn", F.row_number().over(janela_primeiro_leito_real)) \
+        .filter(F.col("_rn") == 1) \
+        .select("CD_INTERNACAO", destino_e_uti.alias("internou_uti_mov"))
+
+    # internação registrada direto em leito de UTI, sem transferência: lê o LEITO da própria
+    # silver_internacoes. Cobre o caso em que a UTI nunca aparece como destino de movimentação
+    # silver_internacoes tem 1 linha por CD_INTERNACAO (deduplicada), então o join não multiplica linhas
+    df_internou_uti_leito = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_internacoes") \
+        .select(
+            "CD_INTERNACAO",
+            # mesma lista uti_prefixos; nulo (leito vazio) vira False
+            F.coalesce(F.col("LEITO").rlike("^(" + "|".join(uti_prefixos) + ")"), F.lit(False)).alias("internou_uti_leito")
+        )
+
     # DataFrame da jornada com junção das tabelas de cirurgias, movimentações e altas
     df_journey = df_journey \
         .join(df_cirug_internacao, on="CD_INTERNACAO", how="left") \
@@ -922,11 +951,14 @@ def gold_patient_journey():
             F.coalesce(F.col("especialidade_cirurgia"), F.col("especialidade_cirurgia_amb"))) \
         .drop("ts_entrada_cirurgia_amb", "ts_saida_cirurgia_amb", "especialidade_cirurgia_amb", "CD_ATENDIMENTO_AMBULATORIAL") \
         .join(df_altas, on="CD_INTERNACAO", how="left") \
-        .join(df_primeiro_leito, on="CD_INTERNACAO", how="left")
+        .join(df_primeiro_leito, on="CD_INTERNACAO", how="left") \
+        .join(df_internou_uti_mov, on="CD_INTERNACAO", how="left") \
+        .join(df_internou_uti_leito, on="CD_INTERNACAO", how="left")
     
     # adiciona colunas ao DataFrame da jornada
     df_journey = df_journey \
         .withColumn("has_uti", F.col("qtd_passagens_uti").isNotNull() & (F.col("qtd_passagens_uti") > 0)) \
+        .withColumn("internou_em_uti", F.coalesce(F.col("internou_uti_mov"), F.lit(False)) | F.coalesce(F.col("internou_uti_leito"), F.lit(False))) \
         .withColumn("qtd_reentradas_uti", F.greatest(F.coalesce(F.col("qtd_passagens_uti"), F.lit(0)) - 1, F.lit(0))) \
         .withColumn("has_cirurgia", F.col("ts_entrada_cirurgia").isNotNull()) \
         .withColumn("ano_mes", F.date_format(F.coalesce(F.col("DT_ATENDIMENTO"), F.col("ts_entrada_internacao")), "yyyy-MM")) \
@@ -966,6 +998,7 @@ def gold_patient_journey():
         "fl_evasao",
         "has_cirurgia",
         "has_uti",
+        "internou_em_uti",
         "qtd_passagens_uti",
         "qtd_reentradas_uti",
         "duracao_total_uti_min",
