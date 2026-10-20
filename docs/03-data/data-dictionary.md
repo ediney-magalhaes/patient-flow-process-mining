@@ -242,7 +242,7 @@ Lakeflow Declarative Pipelines (pipeline `silver_transformations`).
 ## Camada Gold
 
 Event log canônico para Process Mining e atributos de caso para enriquecimento analítico.
-Todas as tabelas `gold_events_*` seguem o schema canônico com 14 colunas.
+Todas as tabelas `gold_events_*` seguem o schema canônico com 14 colunas. `gold_events_movimentacoes` e `gold_event_log` têm uma 15ª, `activity_unidade` (ver abaixo).
 
 ### Schema canônico — tabelas gold_events_*
 
@@ -262,6 +262,7 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 14 colunas.
 | `ano_mes` | string | obrigatório | Mês do **lote de ingestão** no formato `yyyy-MM`, propagado desde a Silver (ADR-0018), não recalculado por timestamp de evento. Âncora temporal para séries históricas e filtros mensais |
 | `data_referencia` | date | obrigatório | Data pura do evento clínico real, definida por fonte (ex.: `DT_ATENDIMENTO` na emergência, `DATA_INICIO_CIRURGIA` nas cirurgias). Evita atribuir o caso ao mês de um evento administrativo, como "Aviso de Cirurgia" |
 | `case_id_jornada` | string | obrigatório | Chave da jornada completa, que une casos de fontes diferentes do mesmo paciente. Na emergência, nos exames de imagem e nos exames laboratoriais é `atend_internacao` quando a emergência converteu e `CD_ATENDIMENTO` quando não converteu. Nas demais fontes é o próprio número da internação ou do atendimento (ver RQ-016) |
+| `activity_unidade` | string | só em `gold_events_movimentacoes` e `gold_event_log` | Nome da atividade com a unidade no lugar do leito (ex.: `TRANSFERÊNCIA: UTI A2 → TERREO`). Nas movimentações, a unidade vem de um mapa leito para unidade calculado por mês de lote; leito sem unidade no mapa mantém o leito no nome (0,15% em mar/2026). `GINECOLOGIA/OBSTETRICIA` é unificada em `TERREO`. Nas outras seis fontes é igual a `activity`. Usada nas variantes (ver RQ-020 e ADR-0021) |
 
 ### gold_events_movimentacoes
 
@@ -407,9 +408,9 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 14 colunas.
 ### gold_variant_analysis
 
 - **Schema:** `hospital_santa_rosa.gold_fluxo`
-- **Granularidade:** 1 linha por variante distinta de jornada × mês (`ano_mes`) × tipo de jornada (`journey_type`). A variante é a sequência de atividades da jornada (`case_id_jornada`), com repetições consecutivas colapsadas
+- **Granularidade:** 1 linha por variante distinta de jornada × mês (`ano_mes`) × tipo de jornada (`journey_type`) × especialidade da jornada (`especialidade`). A variante é a sequência de atividades da jornada (`case_id_jornada`), com repetições consecutivas colapsadas e movimentações por unidade (`activity_unidade`)
 - **Origem:** `gold_event_log`, processado no notebook `03_process_mining.ipynb` a partir de `df_formatado`, por `case_id_jornada`. Jornadas só de exame de imagem externo (`case_type = Externo`) são excluídas (ver RQ-019)
-- **Volume referência:** 1.525 linhas (mar/2026, 6.577 jornadas, medido em 09/10/2026)
+- **Volume referência:** 1.633 linhas (mar/2026, 6.577 jornadas, medido em 14/10/2026)
 - **Atualização:** manual — recalculada e sobrescrita quando o notebook de Process
   Mining é executado, não faz parte do pipeline `gold_transformations`
 - **Correção (18/08/2026):** `ano_mes` passou a ser derivado de `data_referencia`
@@ -422,13 +423,36 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 14 colunas.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
-| `rank` | bigint | Posição da variante no ranking de frequência **dentro do seu `ano_mes` e do seu `journey_type`** (1 = mais frequente naquele mês e tipo) |
-| `sequencia` | string | Sequência de atividades da variante, separadas por `→` |
+| `rank` | bigint | Posição da variante no ranking de frequência **dentro do seu `ano_mes`, `journey_type` e `especialidade`** (1 = mais frequente naquele mês, tipo e especialidade) |
+| `sequencia` | string | Sequência de atividades da variante, separadas por `→`, com `activity_unidade` nas movimentações (a unidade no lugar do leito) e repetições consecutivas colapsadas |
 | `total_eventos` | bigint | Número de atividades da sequência da variante, depois de colapsar repetições consecutivas (ex.: 3 pedidos de exame seguidos contam como 1). Repetições não consecutivas continuam contando. Ver RQ-019 |
 | `ano_mes` | string | Mês de referência da variante, derivado de `data_referencia` (evento clínico real, não administrativo) |
 | `journey_type` | string | Tipo de jornada, vindo de `gold_patient_journey` pela chave `coalesce(cd_internacao, cd_atendimento)`. Vale `sem_jornada_classificada` quando a jornada existe no `gold_event_log` e não existe em `gold_patient_journey` (231 em mar/2026, ver RQ-019) |
-| `total_casos` | bigint | Número de casos (traces) que seguem exatamente essa variante, naquele mês |
+| `especialidade` | string | Especialidade da jornada, com a mesma regra de `gold_variant_jornada`: emergência usa a da emergência; cirurgias usam a da cirurgia; internações clínicas usam a da alta, e sem alta a da internação. Sem nenhuma, a primeira dos eventos; por fim "Sem especialidade" (86 jornadas em mar/2026). Nome bruto da origem (ex.: `MEDICO PEDIATRA`); a tradução com `vw_dim_especialidade` é feita nas consultas do dashboard |
+| `total_casos` | bigint | Número de jornadas (`case_id_jornada`) que seguem exatamente essa variante, naquele mês, tipo de jornada e especialidade |
 | `cobertura_perc` | double | Percentual de casos cobertos por essa variante em relação ao total de jornadas daquele `ano_mes` e `journey_type` |
+
+
+### gold_variant_jornada
+
+- **Schema:** `hospital_santa_rosa.gold_fluxo`
+- **Granularidade:** 1 linha por jornada (`case_id_jornada`)
+- **Origem:** `gold_event_log` (via `df_formatado`, no notebook `03_process_mining.ipynb`), mais `gold_patient_journey` (tipo, duração e especialidade) e `silver_altas` (especialidade da alta, nas internações clínicas)
+- **Volume referência:** 6.577 linhas (mar/2026, medido em 14/10/2026). Jornadas só de exame de imagem externo (625) são excluídas
+- **Atualização:** manual, gravada na mesma célula de `gold_variant_analysis`, para as duas nunca divergirem (ADR-0021)
+- **Propósito:** base para calcular mediana e P90 de duração por caminho no dashboard. Mediana e percentil não se somam, então o cálculo é feito na hora, sobre o filtro escolhido
+- **Colunas:**
+
+| Coluna | Tipo | Descrição | Nullable |
+|---|---|---|---|
+| `case_id_jornada` | string | Chave da jornada | Não |
+| `ano_mes` | string | Mês da jornada, derivado de `data_referencia` | Não |
+| `journey_type` | string | Tipo de jornada vindo de `gold_patient_journey`; `sem_jornada_classificada` quando não existe lá (231 em mar/2026, ver RQ-019) | Não |
+| `especialidade` | string | Especialidade da jornada: emergência usa a da emergência; cirurgias usam a da cirurgia; internações clínicas usam a da alta, e sem alta a da internação. Sem nenhuma, a primeira dos eventos; por fim "Sem especialidade" (86 em mar/2026). Nome bruto, sem tradução | Não |
+| `sequencia` | string | Atividades separadas por `→`, com `activity_unidade` nas movimentações e repetições consecutivas colapsadas | Não |
+| `total_eventos` | bigint | Número de atividades da sequência colapsada | Não |
+| `duracao_total_min` | double | Duração total da jornada em minutos, de `gold_patient_journey`. Nula quando a jornada não tem duração (706 em mar/2026) | Sim |
+
 
 ### gold_performance_spectrum
 

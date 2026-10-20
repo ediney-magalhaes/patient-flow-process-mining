@@ -782,8 +782,6 @@ A Página 4 mostrava nomes brutos de especialidade: `MEDICO PEDIATRA` e `PEDIATR
 
 
 
-
-
 ## RQ-019 — Variantes calculadas por `case_id`, com exames externos e repetições de atividade
 
 - **Tabela afetada:** `gold_variant_analysis`
@@ -809,6 +807,14 @@ A variante passa a ser calculada sobre `df_formatado`, por `case_id_jornada`, or
 
 `total_eventos` passa a contar a sequência **colapsada**.
 
+**Atualização (14/10/2026):**
+
+- **Especialidade da jornada.** `gold_variant_analysis` ganhou a coluna `especialidade`, com uma regra por tipo de jornada: emergência usa a da emergência; cirurgias (eletiva, via emergência e ambulatorial) usam a da cirurgia; internações clínicas usam a da alta (`DS_ESPECIALID` de `silver_altas`) e, sem alta ou sem especialidade na alta, a da internação. Quando nenhuma existe, vale a primeira especialidade preenchida nos eventos da jornada e, por fim, "Sem especialidade" (86 jornadas em mar/2026). A regra foi definida por você: a alta define o "dono" do paciente internado. Em mar/2026, 207 das 340 internações clínicas usam a especialidade da alta e 133 caem no fallback.
+- **Unidade no lugar do leito.** O caminho passou a usar `activity_unidade` (ver RQ-020), e as variantes distintas caíram de 1.525 para 1.328.
+- **Nova tabela `gold_variant_jornada`**, com uma linha por jornada (`case_id_jornada`, `ano_mes`, `journey_type`, `especialidade`, `sequencia`, `total_eventos`, `duracao_total_min`). Existe porque mediana e P90 não se somam: o dashboard calcula o tempo na hora, sobre o filtro escolhido. `gold_variant_analysis` é gravada a partir da mesma base, na mesma célula, para as duas nunca divergirem.
+- **Duração ausente.** 706 das 6.577 jornadas têm `duracao_total_min` nula e ficam fora da mediana e do P90. A decomposição dos 706 não foi medida; a revisão está no checklist de ingestão.
+- **Indicador de ordem (medido, fora do dashboard).** Ignorando a ordem dos eventos, os 1.328 caminhos distintos viram 803 conjuntos de etapas, ou seja, 39,5% dos caminhos diferem só pela ordem de outro. Na emergência a proporção é 62,7%, e na cirurgia eletiva, 57,1%. É um limite superior do efeito clínico, porque inclui qualquer diferença de ordem, inclusive a de eventos administrativos. Não vai para a página, porque o conceito não se comunica bem num cartão.
+
 ### Resultado (mar/2026)
 
 | Medida | Por `case_id` | Por jornada, colapsado | Sem exames externos |
@@ -833,3 +839,45 @@ Foram excluídas 625 jornadas, todas `Externo` (8,7% das 7.202).
 ### Ação futura recomendada
 
 Ao calcular uma análise sobre "caminhos", conferir se as maiores variantes representam o que o negócio entende por caso. Fragmentos de uma fonte, ou populações fora do escopo (como exames externos), aparecem no topo do ranking.
+
+
+
+## RQ-020: Nome da atividade de movimentação com o leito, e não a unidade
+
+- **Tabelas afetadas:** `gold_events_movimentacoes` e `gold_event_log` (nova coluna `activity_unidade`)
+- **Data do achado:** 2026-10-14
+- **Contexto:** construção da Página 5 do Dashboard (Variantes)
+
+### Achado
+
+O nome da atividade de movimentação leva o leito de origem e de destino (ex.: `TRANSFERÊNCIA: LEITO 02 → APTO 130`). Nas movimentações do `gold_event_log` havia 1.167 nomes de atividade distintos, e duas jornadas clinicamente iguais viravam caminhos diferentes só pelo leito. Na cirurgia eletiva, o caminho mais comum tinha 7 jornadas.
+
+Na planilha de movimentações, `TRANSFER. DE` é a entrada em uma unidade e `TRANSFER. PARA` é a saída. Por isso a coluna `UNIDADE` é a do destino nas linhas `DE` e a da origem nas linhas `PARA`. A amostra que conferi foi só do "1º ANDAR 2".
+
+### Decisão
+
+Opção C: `activity` continua com o leito, e `gold_event_log` ganha `activity_unidade`, com a unidade no lugar do leito. As variantes usam `activity_unidade`. Nas outras seis fontes, `activity_unidade` é igual a `activity`.
+
+- **Mapa leito para unidade por mês de lote** (`ano_mes` + leito), montado com o `DESTINO` das linhas `DE` e a `ORIGEM` das linhas `PARA`. É por mês porque um leito pode mudar de unidade entre anos.
+- **Leito sem unidade no mapa** mantém o leito no nome.
+- **Unidades renomeadas:** `GINECOLOGIA/OBSTETRICIA` (nome usado antes de 2025) é unificada em `TERREO`, inclusive em `location`.
+- **Transferência dentro da mesma unidade** continua no caminho (`TRANSFERÊNCIA: 1º ANDAR 2 → 1º ANDAR 2`). A leitura de troca de leito é implícita.
+
+### Resultado (mar/2026)
+
+- Atividades de movimentação distintas: de 1.167 para 111.
+- Mapa: 202 leitos, nenhum em mais de uma unidade.
+- Eventos sem unidade no mapa: 4 de 2.640 (0,15%), dois leitos (BE 14 e UNP 07), que nunca aparecem em transferência.
+- Variantes distintas: de 1.525 para 1.328. A redução foi menor que a esperada, porque boa parte da variação vem da combinação de exames.
+- `GINECOLOGIA/OBSTETRICIA` não aparece entre as 14 unidades de mar/2026, então a unificação não alterou nada do que já estava validado.
+
+### Alternativas consideradas
+
+- **A. Trocar o nome na origem (`activity`).** Perde o leito no event log, altera resultados já publicados (Páginas 2 e 3) e obriga a regravar todas as tabelas do notebook.
+- **B. Trocar só no notebook.** Mais barata, mas deriva a unidade lendo texto no pandas, o que é frágil com mais leitos, e cria dois vocabulários sem lineage.
+
+### Limitações
+
+- O mapa só cobre leitos que aparecem em transferências.
+- Só se conhece uma unidade renomeada. Outras renomeações só aparecem com o histórico, e a verificação está no checklist de ingestão.
+- O DFG da Página 2 já reduzia a movimentação ao tipo e não foi afetado.

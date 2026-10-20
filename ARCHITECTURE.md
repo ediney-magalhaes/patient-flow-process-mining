@@ -268,7 +268,8 @@ Free Edition. Alternativa: deploy manual ou scripts via REST API.
 | `gold_event_log` | 1 linha por evento (UNION ALL) | Event log unificado — input PM4Py | ✅ Sprint 2 |
 | `gold_case_attributes` | 1 linha por atendimento | Atributos clínicos e demográficos para enriquecimento | ✅ Sprint 2 |
 | `gold_data_quality` | 1 linha por fonte+atividade | Cobertura de timestamps por atividade e por caso | ✅ Sprint 2 |
-| `gold_variant_analysis` | 1 linha por variante | Ranking de variantes de processo por frequência | ✅ Sprint 3 |
+| `gold_variant_analysis` | 1 linha por variante × mês × tipo de jornada × especialidade | Caminhos distintos da jornada (`case_id_jornada`), com ranking e cobertura por frequência; alimenta a Página 5 do Dashboard (RQ-019, ADR-0021) | ✅ Sprint 3, recalculada por jornada no Sprint 4 |
+| `gold_variant_jornada` | 1 linha por jornada | Caminho, tipo, especialidade e duração de cada jornada, base para mediana e P90 por caminho no dashboard (ADR-0021) | ✅ Sprint 4 |
 | `gold_bottleneck` | 1 linha por transição × período | Tempos de transição entre atividades por setor | ✅ Sprint 3 |
 | `gold_conformance` | 1 linha por fonte × período | Fitness e precisão do mês testado contra modelo de referência (ano anterior fechado, com fallback — ADR-0019) | ✅ Sprint 3, metodologia revisada Sprint 4 |
 | `gold_sna_handover` | 1 linha por par de processos × período × especialidade de destino | Sucessão de eventos entre tabelas de origem dentro da jornada (`case_id_jornada`), alimenta a Página 4 do Dashboard (RQ-016) | ✅ Sprint 3, chave corrigida Sprint 4 |
@@ -365,5 +366,5 @@ hospital_santa_rosa          (catalog)
 - [C4 Model](https://c4model.com/)
 ---
  
-**Última atualização:** 06/10/2026 • **Sprint atual:** 4 — Entregáveis (Fase 2 em andamento, Páginas 1, 2, 3 e 4 do Dashboard concluídas e publicadas; faltam a Página 5 — Variantes —, o Genie Space e o Databricks App) •
+**Última atualização:** 20/10/2026 • **Sprint atual:** 4 — Entregáveis (Fase 2 em andamento, 5 páginas do Dashboard concluídas e publicadas; faltam o Genie Space e o Databricks App) •
 **Mantenedor:** [Ediney Magalhães](https://github.com/ediney-magalhaes)

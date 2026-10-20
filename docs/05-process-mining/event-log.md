@@ -35,6 +35,7 @@ A tabela central é `gold_event_log`: o `UNION ALL` das sete tabelas `gold_event
 | `ano_mes` | mês do **lote** de ingestão | propagado da Silver, não calculado pelo timestamp (ADR-0018) |
 | `data_referencia` | data clínica real do caso | evita atribuir o caso ao mês de um evento administrativo |
 | `case_id_jornada` | chave da jornada completa | une casos de fontes diferentes do mesmo paciente (ver abaixo) |
+| `activity_unidade` | atividade por unidade | só em `gold_events_movimentacoes` e `gold_event_log`. Nas movimentações, a unidade substitui o leito (ex.: `TRANSFERÊNCIA: UTI A2 → TERREO`); nas outras seis fontes é igual a `activity`. Usada nas variantes (RQ-020, ADR-0021) |
 | `duration_minutes` | duração total do caso | calculada na `gold_event_log`, por `case_id` |
 
 ### Duas chaves de caso
@@ -65,20 +66,20 @@ A tabela central é `gold_event_log`: o `UNION ALL` das sete tabelas `gold_event
 
 **Evento duplicado.** `TRANSFER. DE` e `TRANSFER. PARA` descrevem o mesmo evento físico de movimentação. `gold_events_movimentacoes` deduplica os pares. Quem lê `silver_movimentacoes` diretamente precisa deduplicar também (RQ-017).
 
-**Atividade com detalhe demais.** Em Movimentações, o nome da atividade inclui origem e destino (leito). Isso multiplica atividades e variantes. Para o grafo panorâmico, a atividade é reduzida ao tipo (ADR-0016).
+**Atividade com detalhe demais.** Em Movimentações, o nome da atividade (`activity`) inclui origem e destino (leito). Isso multiplica atividades e variantes: em mar/2026 eram 1.167 nomes distintos. O `activity` foi mantido com o leito, e a coluna `activity_unidade` traz a unidade no lugar dele (111 nomes distintos), calculada por um mapa leito para unidade por mês de lote. As variantes usam `activity_unidade` (RQ-020, ADR-0021). Para o grafo panorâmico, a atividade é reduzida ao tipo (ADR-0016).
 
 **Inversões sistêmicas e timestamps incoerentes.** Em imagem, o término do exame vem depois da liberação (RQ-003). Em altas, "Alta médica" pode aparecer antes do fim da anestesia (RQ-005). São registros da origem, e o log não os corrige.
 
-## Pendências
+## Limitações
 
-- ADR-0006 está desatualizado em três pontos: (1) lista a movimentação como "valor de `TIPO`", mas o código monta o nome com tipo, origem e destino (e normaliza as transferências para "TRANSFERÊNCIA: origem → destino"); (2) escreve "Prescricao de Alta" e "Alta Medica", e o código usa "Prescricao de alta" e "Alta médica"; (3) diz que `DATA_INICIO_CIRURGIA` foi descartada por redundância, mas ela é a base de `data_referencia` em cirurgias. Propor emenda.
-- O dicionário descreve o schema canônico com 12 colunas. O código também grava `data_referencia` e `case_id_jornada`, e `gold_event_log` ainda tem `duration_minutes`. Atualizar o dicionário.
-- A diferença entre 7.957 casos na `gold_event_log` e 7.643 traces no PM4Py é compatível com as linhas descartadas no `format_dataframe`, mas não foi verificada.
-- `outcome` está nulo em todas as fontes. Decidir se tem uso ou se sai do schema.
+- **Casos sem timestamp.** O `gold_event_log` tem 7.957 casos, e o PM4Py recebe 7.643 traces. Os 314 de diferença são casos em que nenhum evento tem timestamp, descartados pelo `format_dataframe` (confirmado por consulta em 20/10/2026). É dado ausente na origem (RQ-004), e não perda de pipeline.
+- **`outcome` é sempre nulo.** A coluna existe no schema canônico como reserva (o padrão XES prevê desfecho), e nenhuma fonte a preenche hoje. Permanece no schema, para uso futuro, sem custo de manutenção.
+- **`lifecycle` é sempre `complete`.** Cada timestamp vira um evento pontual, sem início e fim da mesma atividade.
+- **Vocabulário das atividades.** A lista de atividades e o mapeamento de timestamps estão no ADR-0006, com a emenda de 06/10/2026 (nome da movimentação e grafia das atividades de alta).
 
 ## Referências
 
 - IEEE 1849-2016, *Standard for eXtensible Event Stream (XES)*.
 - Van der Aalst, W. (2016). *Process Mining: Data Science in Action*, capítulos sobre dados de eventos.
 - Documentação do PM4Py: `format_dataframe`, `convert_to_event_log`, `write_xes`.
-- ADR-0006, ADR-0007, ADR-0008, ADR-0018, RQ-003, RQ-004, RQ-005, RQ-015, RQ-016, RQ-017.
+- ADR-0006, ADR-0007, ADR-0008, ADR-0018, RQ-003, RQ-004, RQ-005, RQ-015, RQ-016, RQ-017, RQ-020, ADR-0021.
