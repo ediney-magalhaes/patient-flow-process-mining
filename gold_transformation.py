@@ -896,9 +896,10 @@ def gold_patient_journey():
     # unidades extras para exclusão do primeiro movimento de leito
     unidades_extras = ["BERCARIO - ALOJAMENTO CONJUNTO", "HEMODINAMICA", "OBSERVACAO PA", "EXTRA INTERNACAO"]
 
-    # DataFrame com o timestamp do primeiro leito físico real
+    # DataFrame com o timestamp do primeiro leito físico real (ignora unidades virtuais e registros de ALTA, que não são entrada em leito)
     df_primeiro_leito = df_movim.filter(
-        ~F.col("unidade_movimentacao").isin(unidades_extras)
+        ~F.col("unidade_movimentacao").isin(unidades_extras) &
+        (F.coalesce(F.col("tipo_movimentacao"), F.lit("")) != "ALTA")
     ).groupBy("CD_INTERNACAO") \
      .agg(F.min("DT_HR_MOVIMENTACAO").alias("ts_primeiro_leito"))
 
@@ -913,10 +914,9 @@ def gold_patient_journey():
     # coalesce transforma o nulo (destino vazio, como na ALTA) em False
     destino_e_uti = F.coalesce(F.col("DESTINO").rlike("^(" + "|".join(uti_prefixos) + ")"), F.lit(False))
 
-    # primeira movimentação em unidade real: descarta as unidades virtuais (unidades_extras),
-    # numera por internação e fica com a primeira (_rn = 1)
+    # primeira movimentação em unidade real: descarta as unidades virtuais (unidades_extras), e os registros de ALTA, numera por internação e fica com a primeira (_rn = 1)
     df_internou_uti_mov = df_movim_bruta \
-        .filter(~F.coalesce(F.col("UNIDADE"), F.lit("")).isin(unidades_extras)) \
+        .filter(~F.coalesce(F.col("UNIDADE"), F.lit("")).isin(unidades_extras) & (F.coalesce(F.col("TIPO"), F.lit("")) != "ALTA")) \
         .withColumn("_rn", F.row_number().over(janela_primeiro_leito_real)) \
         .filter(F.col("_rn") == 1) \
         .select("CD_INTERNACAO", destino_e_uti.alias("internou_uti_mov"))
