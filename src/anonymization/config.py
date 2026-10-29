@@ -29,7 +29,7 @@ ANONYMIZATION_CONFIGS: list[ColumnConfig] = [
         generalize_columns={
             "DT_NASC": "age_only",
         },
-        enrich_conversao_curada=True,
+        enrich_conversao_curada=False,
     ),
     ColumnConfig(
         name="internacoes",

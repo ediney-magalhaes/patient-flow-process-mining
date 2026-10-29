@@ -357,8 +357,8 @@ def gold_events_emergencia():
     # leitura da tabela silver_emergencia — já traz ano_mes de lote (ADR-0018)
     df = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_atendimento_emergencia")
 
-    # renomeia a coluna local de procedencia
-    df = df.withColumnRenamed("LOCAL_PROCED", "location")
+    # cria a coluna location nula, pois a mart do projeto pipeline-analytics não traz a coluna com o local de procedência do paciente
+    df = df.withColumn("location", F.lit(None).cast("string"))
 
     # lista de eventos
     eventos = [
@@ -623,7 +623,7 @@ def gold_case_attributes():
     df_emergencia = df_emergencia.select(
         F.col("CD_ATENDIMENTO").alias("case_id"),
         F.lit("emergencia").alias("case_type"),
-        F.col("IDADE_CALCULADA").alias("idade"),
+        F.col("IDADE").alias("idade"),
         F.col("SEXO").alias("sexo"),
         F.col("CONVENIO").alias("convenio"),
         F.col("ESPECIALIDADE").alias("especialidade"),

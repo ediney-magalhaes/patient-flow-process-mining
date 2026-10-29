@@ -65,15 +65,14 @@ def silver_altas():
 def silver_atendimento_emergencia():
     df = spark.read.table("hospital_santa_rosa.bronze_fluxo.bronze_atendimento_emergencia_raw")
 
-    # filtra apenas atendimentos do Hospital Santa Rosa
-    df = df.filter(col("EMPRESA") == "HSR")
+    # renomeação da coluna de atendimentos (projeto GCP x Databricks)
+    df = df.withColumnRenamed("atend_PA", "CD_ATENDIMENTO")
 
     # converte colunas de timestamp de string para timestamp
     timestamp_cols = [
         "DT_HR_TOTEM_RECEP", "CHAMADA_CLASSIFICACAO", "INICIO_CLASSIFICACAO",
         "DT_HR_CLASSIF_RISCO", "CHAMADA_CAD_RECEP", "DH_CADASTRO_RECEPCAO",
-        "FIM_CAD_RECEP", "DH_ATEND_MEDICO", "INI_ATD_MEDICO", "FIM_ATD_MEDICO",
-        "DT_HR_TRANF_LEITO", "DT_HR_SAIDA_LEITO", "DT_HR_ALTA"
+        "FIM_CAD_RECEP", "DH_ATEND_MEDICO", "INI_ATD_MEDICO", "FIM_ATD_MEDICO", "DT_HR_ALTA"
     ]
     for c in timestamp_cols:
         df = df.withColumn(c, to_timestamp(col(c)))
@@ -85,9 +84,6 @@ def silver_atendimento_emergencia():
     df = (
         df
         .withColumn("IDADE", col("IDADE").cast("int"))
-        .withColumn("COD_TRIAGEM", col("COD_TRIAGEM").cast("int"))
-        .withColumn("REGISTRO_ANS", col("REGISTRO_ANS").cast("int"))
-        .withColumn("IDADE_CALCULADA", col("IDADE_CALCULADA").cast("int"))
         .withColumn("fl_conversao", col("fl_conversao").cast("int"))
         .withColumn("fl_evasao", col("fl_evasao").cast("int"))
     )
@@ -127,13 +123,8 @@ def silver_atendimento_emergencia():
                     ).otherwise(lit(False))
         )
     )
-    # remove colunas financeiras e metadados
-    df = df.drop(
-        "CONTA", "TOTAL_CONTA", "CONTA_FECHADA",
-        "CD_LEITO", "ENCAMINHADO_LEITO", "DT_HR_TRANF_LEITO", "DT_HR_SAIDA_LEITO",
-        "DT_ATENDIMENTO_FILTRO", "IDADE", "EMPRESA",
-        "_rescued_data", "_source_file", "_ingestion_timestamp"
-    )
+    # remove metadados de ingestão
+    df = df.drop("_rescued_data", "_source_file", "_ingestion_timestamp")
 
     # deduplicação da coluna CD_ATENDIMENTO, mantém a coluna mais antiga
     window = Window.partitionBy("CD_ATENDIMENTO").orderBy(col("DT_HR_CLASSIF_RISCO").asc_nulls_last())
