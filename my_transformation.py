@@ -80,7 +80,7 @@ def silver_atendimento_emergencia():
     # converte data de atendimento para date
     df = df.withColumn("DT_ATENDIMENTO", to_date(col("DT_ATENDIMENTO")))
 
-    # converte colunas numericas de string para inteiro
+    # converte colunas numericas de string para inteiro (pandas converte a coluna em decimal na leitura do Excel por causa dos valores nulos)
     df = (
         df
         .withColumn("IDADE", col("IDADE").cast("int"))
