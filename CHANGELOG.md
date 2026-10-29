@@ -168,6 +168,15 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   com março/2026, cartão a cartão, contra consultas independentes
   (Silver, Gold e BigQuery), iniciada pela Página 1
 - `docs/07-operations/ingestao-historico.md` com o item dos prefixos de UTI
+- ADR-0023: mediana e P90 como padrão dos campos de tempo do dashboard,
+  aplicado na Página 1 e nas demais páginas conforme a validação de cada uma
+- RQ-021: registro de `ALTA` tomado como primeiro leito em `ts_primeiro_leito`
+- Dataset `kpis_jornada_emergencia_cards` com mediana, P90 e número de casos do
+  tempo até o leito e da jornada, em texto formatado como os cartões da
+  Página 2 (documentado em `dashboard-kpis-jornada.md`)
+- `docs/07-operations/ingestao-historico.md` com os itens do primeiro leito
+  anterior ao registro, do caminho pelo leito de `internou_em_uti` e da
+  conferência mensal contra o BigQuery
 
 
 #### Corrigido
@@ -274,6 +283,18 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   e não o atendimento que internou em UTI; passou a usar `internou_em_uti`
   (2,73%, 170 de 6.236 em mar/2026), com o campo `Internou Em Uti Numerico`
   no Data Model (ADR-0022)
+- `ts_primeiro_leito` e o primeiro leito de `internou_em_uti` tomavam como
+  primeiro leito um registro de `ALTA` com data anterior ao registro da
+  internação, o que dava tempo negativo (2 das 732 internações com registro em
+  mar/2026); passaram a ignorar `ALTA` (RQ-021, ADR-0022). Na tabela inteira,
+  `internou_em_uti` passou de 229 para 230 linhas
+- Cartão "Tempo até o Leito" da Página 1 mostrava a média (5,97 h), sem
+  dispersão e sem ligação com o filtro `Período`; passou a mostrar mediana e
+  P90 (3,95 h e 13,37 h, 412 casos em mar/2026) pelo dataset
+  `kpis_jornada_emergencia_cards` (ADR-0023)
+- ADR-0022 e validação do cartão "Conversão UTI": o atendimento de internação
+  direta em UTI não tinha só a `ALTA` como movimentação, e a diferença entre
+  `has_uti` e `internou_em_uti` é de 16 atendimentos, e não de 17
 
 
 #### Sprint 3 — Process Mining (concluído)

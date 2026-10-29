@@ -2,6 +2,7 @@
 
 - **Status:** aceito
 - **Data:** 2026-10-20
+- **Última atualização:** 2026-10-29 (registros de `ALTA` deixam de contar como primeiro leito)
 - **Decisores:** Ediney Magalhães
 - **Relacionado a:** ADR-0014, RQ-017
 
@@ -11,12 +12,13 @@
 
 O cartão "Conversão UTI" da Página 1 media `has_uti`, que marca a passagem pela UTI em qualquer momento da internação. A validação do dashboard (`validacao-dashboard.md`) mostrou que isso não corresponde à definição de conversão em UTI, que é o atendimento do PA que virou internação em UTI. Em mar/2026 os números diferem: 186 atendimentos (2,98%) pela passagem, 170 (2,73%) pela internação em UTI.
 
-Os dados mostraram quatro fatos que moldam a regra:
+Os dados mostraram cinco fatos que moldam a regra:
 
 1. A primeira movimentação da internação é sempre uma unidade virtual. Em mar/2026, 443 dos 445 convertidos com movimentação começam em `OBSERVACAO PA` ou `EXTRA INTERNACAO`, e nenhum começa na UTI. Olhar só a primeira movimentação daria zero.
 2. Depois da unidade virtual, 169 atendimentos têm a UTI como primeiro leito real, em uma transferência.
-3. Um atendimento tem a internação registrada direto em leito de UTI (`silver_internacoes.LEITO`) e só a `ALTA` como movimentação.
+3. Um atendimento tem a internação registrada direto em leito de UTI (`silver_internacoes.LEITO`). A primeira movimentação dele, por data, era um registro de `ALTA` anterior ao registro da internação, e a `INTERNACAO` na UTI veio depois.
 4. Nos pares `TRANSFER. DE` e `TRANSFER. PARA`, a `UNIDADE` é diferente entre as duas linhas (973 de 973 pares em mar/2026). A deduplicação do código mantém uma delas ao acaso.
+5. Registros de `ALTA` com data anterior ao registro da internação podem ser a primeira movimentação em unidade real (2 das 732 internações com registro em mar/2026, uma delas do PA). Eles não são entrada em leito e não podem definir o primeiro leito.
 
 O `has_uti` é usado em outros lugares com o sentido de passagem: o cartão "Internações com UTI" da Página 1, o desenho da Página 4 (UTI antes e depois da cirurgia, UTI sem cirurgia) e a view `gold_bi_jornada`.
 
@@ -33,11 +35,11 @@ O atendimento internou em UTI quando:
 - o **primeiro leito real** da internação é de UTI, ou
 - a **própria internação foi registrada em leito de UTI**.
 
-Unidade virtual (`OBSERVACAO PA`, `EXTRA INTERNACAO`, `HEMODINAMICA`, `BERCARIO - ALOJAMENTO CONJUNTO`, a lista `unidades_extras` já usada em `ts_primeiro_leito`) não conta como primeiro leito. Passar por ela e ser transferido para a UTI conta.
+Unidade virtual (`OBSERVACAO PA`, `EXTRA INTERNACAO`, `HEMODINAMICA`, `BERCARIO - ALOJAMENTO CONJUNTO`, a lista `unidades_extras` já usada em `ts_primeiro_leito`) e registro de `ALTA` não contam como primeiro leito. Passar por unidade virtual e ser transferido para a UTI conta.
 
 ### 3. Como o código calcula
 
-- **Primeiro leito real:** primeira movimentação, por horário, com `UNIDADE` fora das unidades virtuais, lida de `silver_movimentacoes` **antes da deduplicação** (`df_movim_bruta`). Vale `True` quando o leito de destino começa por um prefixo da lista `uti_prefixos`, a mesma do `has_uti`.
+- **Primeiro leito real:** primeira movimentação, por horário, com `UNIDADE` fora das unidades virtuais e `TIPO` diferente de `ALTA`, lida de `silver_movimentacoes` **antes da deduplicação** (`df_movim_bruta`). Vale `True` quando o leito de destino começa por um prefixo da lista `uti_prefixos`, a mesma do `has_uti`.
 - **Internação direta:** `LEITO` de `silver_internacoes` com o mesmo critério de prefixo.
 - **Resultado:** o "ou" dos dois, com nulo tratado como `False`, calculado por jornada.
 
@@ -61,7 +63,8 @@ O cartão "Conversão UTI" usa o campo `Internou Em Uti Numerico` (`CASE WHEN so
 
 - A `gold_patient_journey` ganha uma coluna, e o pipeline `gold_transformations` exige Full Refresh.
 - Duas medidas de UTI convivem: passagem (`has_uti`) e internação (`internou_em_uti`). Os documentos de cada página dizem qual usam.
-- Em mar/2026, o cartão da Página 1 passou de 2,98% para 2,73% (170 de 6.236). Na tabela inteira, 229 linhas têm a coluna verdadeira, contando as internações que não vieram do PA.
+- Em mar/2026, o cartão da Página 1 passou de 2,98% para 2,73% (170 de 6.236). Na tabela inteira, 230 linhas têm a coluna verdadeira (229 antes de o `ALTA` deixar de contar como primeiro leito, em 29/10/2026), contando as internações que não vieram do PA.
 - A regra vive em uma coluna só. Se a definição mudar, o ajuste é naquele ponto do código.
 - A lista `uti_prefixos` é fixa no código. Em mar/2026 ela reconhece as cinco unidades de UTI do hospital (`UTI - CORONARIANA`, `UTI A1`, `UTI A2`, `UTI B - CIRURGICA` e `UTI INFANTIL`). Com o histórico, a cobertura precisa ser reconferida (checklist de ingestão).
+- O caminho pelo leito da internação (`silver_internacoes.LEITO`) coincide com a movimentação em mar/2026 e não acrescenta nenhum atendimento do PA. Ele permanece na regra para admissões diretas sem movimentação, e a contribuição dele deve ser reconferida com o histórico (checklist de ingestão).
 - Convertidos sem leito real não contam: em mar/2026, 33 passaram só por unidade virtual e 7 não têm internação em `silver_internacoes`.

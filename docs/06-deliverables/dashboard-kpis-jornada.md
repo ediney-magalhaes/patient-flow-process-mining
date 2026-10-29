@@ -30,7 +30,7 @@ gráficos por seção (tendência mensal + distribuição por categoria).
 | Taxa de Conversão (%) | `gold_patient_journey` | `AVG(Fl Conversao)`, formato % |
 | Conversão cirúrgica (% dos atendimentos do PA) | `gold_patient_journey` | `AVG(Has Cirurgia Numerico)`, formato %. Base: todos os atendimentos do PA (6.236 em mar/2026, resultado 2,74%) |
 | Conversão UTI (% dos atendimentos do PA) | `gold_patient_journey` | `AVG(Internou Em Uti Numerico)`, formato %. Base: todos os atendimentos do PA. Conta o atendimento que internou em UTI: o primeiro leito real da internação é de UTI, ou a internação foi registrada em leito de UTI (resultado 2,73% em mar/2026, ver `validacao-dashboard.md`) |
-| Tempo até o Leito (h) | `gold_patient_journey` | `AVG(Duracao Internacao Leito Horas)` |
+| Tempo até o Leito (h) | `kpis_jornada_emergencia_cards` | Valor `mediana_formatada_leito` (mediana) e comparação `p90_formatado_leito` (P90), dos atendimentos do PA que internaram e têm leito real (412 em mar/2026: mediana de 3,95 h e P90 de 13,37 h). O recorte `cd_atendimento is not null` está na SQL do dataset, e o cartão responde ao filtro `Período` pelo parâmetro `periodo`. Padrão do ADR-0023 |
 | Tempo Médio da Jornada (h) | `gold_patient_journey` | `AVG(Duracao Total Horas)` |
 
 **Gráfico "Duração Média por Tipo de Jornada (Emergência)"** — barra,
@@ -112,6 +112,48 @@ da Página 1 não usam este dataset para os percentuais — usam
 o efeito de "média de médias" ao combinar múltiplos meses. Este dataset
 serve exclusivamente ao gráfico de tendência mensal, onde o grão por mês é
 o propósito.
+
+### `kpis_jornada_emergencia_cards`
+
+Grão: 1 linha (agregado). Parâmetro: `periodo` (`'Todos'` ou um `ano_mes`), ligado ao filtro `Período` da página. Alimenta o cartão "Tempo até o Leito", no formato dos cartões da Página 2 (colunas de texto `*_formatado*`, com vírgula decimal). A mediana e o P90 são calculados na hora, sobre o filtro escolhido (ADR-0023).
+
+```sql
+with j as (
+    select
+        *,
+        -- minutos da abertura da internação até o primeiro leito real (nulo para quem não internou)
+        (unix_timestamp(ts_primeiro_leito) - unix_timestamp(ts_entrada_internacao)) / 60 as leito_min
+    from hospital_santa_rosa.gold_fluxo.gold_patient_journey
+    where cd_atendimento is not null
+      and (:periodo = 'Todos' or ano_mes = :periodo)
+),
+base as (
+    select
+        round(sum(fl_conversao) * 100.0 / count(distinct cd_atendimento), 1) as tx_conversao,
+        round(sum(case when has_cirurgia = true then 1 else 0 end) * 100.0 / count(distinct cd_atendimento), 1) as tx_conversao_cirurgica,
+        round(sum(case when has_uti = true then 1 else 0 end) * 100.0 / count(distinct cd_atendimento), 1) as tx_conversao_uti,
+        round(sum(duracao_total_min) / count(duracao_total_min) / 60.0, 1) as tempo_medio_jornada_horas,
+        count(distinct cd_atendimento) as total_atendimento,
+        percentile(leito_min, 0.5) as mediana_leito_min,
+        percentile(leito_min, 0.9) as p90_leito_min,
+        count(leito_min) as casos_leito,
+        percentile(duracao_total_min, 0.5) as mediana_jornada_min,
+        percentile(duracao_total_min, 0.9) as p90_jornada_min,
+        count(duracao_total_min) as casos_jornada
+    from j
+)
+select
+    *,
+    concat(replace(cast(round(mediana_leito_min / 60, 1) as string), '.', ','), ' h') as mediana_formatada_leito,
+    concat('P90 ', replace(cast(round(p90_leito_min / 60, 1) as string), '.', ','), ' h') as p90_formatado_leito,
+    concat(casos_leito, ' casos') as casos_formatado_leito,
+    concat(replace(cast(round(mediana_jornada_min / 60, 1) as string), '.', ','), ' h') as mediana_formatada_jornada,
+    concat('P90 ', replace(cast(round(p90_jornada_min / 60, 1) as string), '.', ','), ' h') as p90_formatado_jornada,
+    concat(casos_jornada, ' casos') as casos_formatado_jornada
+from base
+```
+
+As colunas `tx_conversao`, `tx_conversao_cirurgica`, `tx_conversao_uti`, `tempo_medio_jornada_horas` e `total_atendimento` já existiam e não foram alteradas. As colunas `*_jornada` calculam a mediana e o P90 do tempo da jornada.
 
 ### `kpis_jornada_emergencia_por_tipo`
 

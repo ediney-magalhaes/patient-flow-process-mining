@@ -881,3 +881,34 @@ Opção C: `activity` continua com o leito, e `gold_event_log` ganha `activity_u
 - O mapa só cobre leitos que aparecem em transferências.
 - Só se conhece uma unidade renomeada. Outras renomeações só aparecem com o histórico, e a verificação está no checklist de ingestão.
 - O DFG da Página 2 já reduzia a movimentação ao tipo e não foi afetado.
+
+
+## RQ-021: Registro de `ALTA` tomado como primeiro leito em `ts_primeiro_leito`
+
+- **Tabela afetada:** `gold_patient_journey` (`ts_primeiro_leito` e `internou_em_uti`)
+- **Data do achado:** 2026-10-29
+- **Contexto:** validação do cartão "Tempo até o Leito" da Página 1
+
+### Achado
+
+Uma internação do PA tinha o primeiro leito 10,3 h antes do registro da internação, o que dava tempo negativo. As movimentações dela são `ALTA` em 23/03 às 11:12, `INTERNACAO` em 23/03 às 21:32 (no mesmo minuto do registro) e `ALTA` em 27/03 às 11:12, todas na UTI A2. O registro de `ALTA` de 23/03 é anterior à admissão e tem o mesmo horário da alta de 27/03.
+
+Em mar/2026, entre as 732 internações com registro, a primeira movimentação em unidade real era `TRANSFER. DE` em 705, `INTERNACAO` em 25 e `ALTA` em 2. As duas com `ALTA` tinham data anterior ao registro, uma do PA e outra de fora do PA. As outras 730 não têm o problema.
+
+### Causa raiz
+
+`ts_primeiro_leito` tomava a menor data entre as movimentações em unidade não virtual, sem olhar o `TIPO`. O primeiro leito de `internou_em_uti` usava o mesmo critério. Um registro de `ALTA` não é entrada em leito.
+
+### Decisão
+
+`df_primeiro_leito` e o primeiro leito de `internou_em_uti` passam a ignorar as movimentações do tipo `ALTA` (commit `35eaf0c`). Nenhum caso sai do cálculo: as duas internações ganham o primeiro leito correto. No caso `1631623` é a `INTERNACAO` das 21:32, com tempo de 0 h.
+
+Resultado após Full Refresh de `gold_transformations`: 732 internações com leito e nenhum tempo negativo. Os 412 do PA seguem 412, com média de 6,0 h (5,97 h antes) e mediana de 3,95 h. O `internou_em_uti` do PA fica em 170, e na tabela inteira passa de 229 para 230 linhas.
+
+### Efeito no dashboard
+
+O cartão "Tempo até o Leito" da Página 1 foi validado depois da correção. O cartão "Até o Leito" da Página 2 descartava essas duas internações pela condição `ts_primeiro_leito >= ts_entrada_internacao` (730 casos contra 732). Depois da correção a condição não descarta mais nada, e a Página 2 é conferida na validação dela.
+
+### Ação futura recomendada
+
+Ao definir o "primeiro" evento pela menor data, filtrar antes o tipo de movimentação que representa a entrada. Desconfiar de tempo negativo: ele indica evento fora de ordem. A conferência por carga está no checklist de ingestão (`ingestao-historico.md`, item "Primeiro leito anterior ao registro da internação").
