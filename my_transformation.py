@@ -86,6 +86,7 @@ def silver_atendimento_emergencia():
         .withColumn("IDADE", col("IDADE").cast("int"))
         .withColumn("fl_conversao", col("fl_conversao").cast("int"))
         .withColumn("fl_evasao", col("fl_evasao").cast("int"))
+        .withColumn("atend_internacao", regexp_replace(col("atend_internacao"), r"\.0$", ""))
     )
 
     # padroniza classificacao de risco: AMARELO1 -> AMARELO
