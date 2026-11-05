@@ -962,6 +962,12 @@ def gold_patient_journey():
         .withColumn("qtd_reentradas_uti", F.greatest(F.coalesce(F.col("qtd_passagens_uti"), F.lit(0)) - 1, F.lit(0))) \
         .withColumn("has_cirurgia", F.col("ts_entrada_cirurgia").isNotNull()) \
         .withColumn("ano_mes", F.date_format(F.coalesce(F.col("DT_ATENDIMENTO"), F.col("ts_entrada_internacao")), "yyyy-MM")) \
+        .withColumn("ts_fim_emergencia", F.coalesce(F.col("ts_alta_emergencia"), F.when(F.col("fl_conversao") == 1, F.col("ts_entrada_internacao")))) \
+        .withColumn("origem_fim_emergencia", F.when(F.col("ts_alta_emergencia").isNotNull(), F.lit("alta"))
+                                                    .when(F.col("ts_fim_emergencia").isNotNull(), F.lit("internacao"))
+                                                    .when(F.col("CD_ATENDIMENTO").isNotNull(), F.lit("sem_alta_registrada"))) \
+        .withColumn("duracao_emergencia_min",
+                    (F.unix_timestamp(F.col("ts_fim_emergencia")) - F.unix_timestamp(F.col("ts_chegada"))) / 60) \
         .withColumn("duracao_emergencia_internacao_min", (F.unix_timestamp("ts_entrada_internacao") - F.unix_timestamp("ts_chegada")) / 60) \
         .withColumn("duracao_internacao_cirurgia_min", (F.unix_timestamp("ts_entrada_cirurgia") - F.unix_timestamp("ts_entrada_internacao")) / 60) \
         .withColumn("duracao_cirurgia_leito_min", (F.unix_timestamp("ts_primeiro_leito") - F.unix_timestamp("ts_saida_cirurgia")) / 60) \
@@ -1018,5 +1024,8 @@ def gold_patient_journey():
         "duracao_total_min",
         "especialidade_emergencia",
         "especialidade_internacao",
-        "especialidade_cirurgia"
+        "especialidade_cirurgia",
+        "ts_alta_emergencia",
+        "duracao_emergencia_min",
+        "origem_fim_emergencia"
     )
