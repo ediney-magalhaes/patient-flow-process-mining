@@ -361,6 +361,10 @@ Nas próximas ingestões mensais, usar o mesmo arquivo/fonte já curada pelo
 projeto `pipeline-analytics-emergencia` para os campos de totem, em vez da
 extração direta usada em março/2026.
 
+### Atualização — 2026-11-05
+
+A ação recomendada foi adotada para todas as ingestões de emergência: a fonte passou a ser a mart curada inteira (`pipeline-analytics-emergencia.marts.atendimentos_pa`), extraída e anonimizada localmente (ADR-0024). Março/2026 foi reingerido por esse caminho e os 6.236 atendimentos chegam com `DT_HR_TOTEM_RECEP`, sem nenhum registro sem chegada, da Bronze à Gold. A decisão sobre `ano_mes` (usar `DT_ATENDIMENTO`) continua valendo.
+
 
 ## RQ-010 — Confirmação de `internacao_clinica_direta` como categoria de negócio real
 
@@ -912,3 +916,76 @@ O cartão "Tempo até o Leito" da Página 1 foi validado depois da correção. O
 ### Ação futura recomendada
 
 Ao definir o "primeiro" evento pela menor data, filtrar antes o tipo de movimentação que representa a entrada. Desconfiar de tempo negativo: ele indica evento fora de ordem. A conferência por carga está no checklist de ingestão (`ingestao-historico.md`, item "Primeiro leito anterior ao registro da internação").
+
+## RQ-022: Expectations de ordem temporal da emergência com violações (`flag_atend_alta` e `flag_classif_recep`)
+
+- **Tabela de origem:** `silver_atendimento_emergencia`
+- **Campos afetados:** `FIM_ATD_MEDICO` e `DT_HR_ALTA`; `DT_HR_CLASSIF_RISCO` e `DH_CADASTRO_RECEPCAO`
+- **Data do achado:** 2026-11-05
+- **Contexto:** conferência da Silver depois da troca da fonte da emergência (ADR-0024)
+
+### Achado
+
+A Silver de emergência tem quatro expectations de ordem entre marcos consecutivos do atendimento, todas com ação `ALLOW` (o registro é mantido e a violação é contada). Em mar/2026, com 6.236 atendimentos, duas apresentam violações:
+
+| Expectation | Condição esperada | Violações |
+|---|---|---|
+| `flag_atend_alta` | `FIM_ATD_MEDICO <= DT_HR_ALTA` | 5.125 |
+| `flag_classif_recep` | `DT_HR_CLASSIF_RISCO <= DH_CADASTRO_RECEPCAO` | 16 |
+
+`flag_totem_classif` e `flag_recep_atend` não têm violações.
+
+### Causa
+
+`flag_atend_alta`: a ordem registrada é a inversa da esperada. A explicação operacional é que o médico registra a alta e fecha o atendimento depois. A mesma proporção aparece no projeto `pipeline-analytics-emergencia` e a contagem (5.125) é igual à da fonte anterior, o que mostra que vem do sistema de origem, e não da troca de fonte.
+
+`flag_classif_recep`: casos pontuais de classificação de risco registrada depois do início do cadastro. Na fonte anterior eram 4.
+
+### Decisão
+
+Nenhuma correção. As expectations seguem com `ALLOW`, e os registros ficam na Silver. O fim do atendimento médico não serve de substituto para a alta da emergência (ADR-0025). O event log ordena os eventos pelos timestamps registrados, então nesses atendimentos `Alta da Emergência` aparece antes de `Fim da Consulta Médica`.
+
+### Ação futura recomendada
+
+Acompanhar a contagem das duas expectations a cada carga mensal (`ingestao-historico.md`). Uma mudança grande em relação ao patamar de cada uma indica alteração no registro da origem.
+
+## RQ-023: Atendimentos de emergência sem alta registrada
+
+- **Tabela de origem:** `silver_atendimento_emergencia`
+- **Campo afetado:** `DT_HR_ALTA` (origem de `ts_alta_emergencia` em `gold_patient_journey`)
+- **Data do achado:** 2026-10-29
+- **Contexto:** validação do cartão "Tempo Médio da Jornada" da Página 1, seção Emergência
+
+### Achado
+
+Em mar/2026, 643 dos 6.236 atendimentos não têm `DT_HR_ALTA`, e todos têm `MOTIVO_ALTA` igual a `NÃO INFORMADO`:
+
+| Grupo | Casos | Horário médico registrado |
+|---|---|---|
+| Não convertidos, não evadidos | 639 | 315 com fim, 12 só com início, 312 sem nenhum |
+| Convertidos | 4 | nenhum |
+
+Todos têm horário de chegada. A mart curada tem a mesma lacuna, e o projeto `pipeline-analytics-emergencia` trata a permanência como nula quando não há alta.
+
+### Causa
+
+O sistema de origem não tem alta nem motivo de alta informados nesses atendimentos, e nada nele indica o desfecho.
+
+### Decisão
+
+Registrada no ADR-0025. O fim da emergência é a alta (`origem_fim_emergencia = alta`) ou, no convertido sem alta, a abertura da internação (`internacao`). Sem nenhum dos dois, a duração fica nula (`sem_alta_registrada`). Nenhum caso é excluído em silêncio: o cartão mostra a mediana e o P90 dos casos com duração e, ao lado, quantos ficaram sem alta registrada.
+
+Resultado em mar/2026 depois do Full Refresh de `gold_transformations`:
+
+| `origem_fim_emergencia` | Jornadas |
+|---|---|
+| `alta` | 5.593 |
+| `internacao` | 4 |
+| `sem_alta_registrada` | 639 |
+| nulo (jornadas sem passagem pela emergência) | 422 |
+
+Para `alta`, a mediana é de 187,1 min e o P90 de 394,3 min, sem nenhuma duração negativa. Os valores foram conferidos contra um cálculo independente sobre a Silver.
+
+### Ação futura recomendada
+
+Incluir a proporção de `sem_alta_registrada` na conferência mensal de ingestão (`ingestao-historico.md`). Um aumento indica falha no registro da alta na origem.

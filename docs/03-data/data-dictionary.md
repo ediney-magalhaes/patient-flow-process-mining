@@ -29,8 +29,8 @@ desde a origem.
 
 - **Schema:** `hospital_santa_rosa.bronze_fluxo`
 - **Granularidade:** 1 linha por atendimento de emergência
-- **Origem:** `atendimento_emergencia_anonimizado.csv`
-- **Volume referência:** 8.730 registros (mar/2026)
+- **Origem:** mart curada `pipeline-analytics-emergencia.marts.atendimentos_pa` (BigQuery), extraída por competência e anonimizada localmente antes do upload (ADR-0024)
+- **Volume referência:** 6.236 registros (mar/2026)
 
 ### bronze_cirurgias_raw
 
@@ -111,24 +111,23 @@ Lakeflow Declarative Pipelines (pipeline `silver_transformations`).
 
 - **Schema:** `hospital_santa_rosa.silver_fluxo`
 - **Granularidade:** 1 linha por atendimento de emergência (deduplicada por CD_ATENDIMENTO)
-- **Origem:** `bronze_atendimento_emergencia_raw`
+- **Origem:** `bronze_atendimento_emergencia_raw` (mart curada, ADR-0024)
 - **Volume referência:** 6.236 registros (mar/2026)
-- **Enriquecimento externo:** colunas `fl_conversao`, `fl_evasao` e `atend_internacao` segue o mesmo tratamento de `CD_ATENDIMENTO`: texto puro, sem hash desde a ADR-0017 e a RQ-013, para permitir 
-  join direto com `silver_internacoes.CD_INTERNACAO` na Gold
+- **Colunas curadas na origem:** `fl_conversao`, `fl_evasao` e `atend_internacao` já chegam da mart, onde a curadoria do projeto `pipeline-analytics-emergencia` está aplicada. O pipeline não enriquece mais essas colunas. `CD_ATENDIMENTO` e `atend_internacao` são texto puro, sem hash desde a ADR-0017 e a RQ-013, para permitir join direto com `silver_internacoes.CD_INTERNACAO` na Gold
 - **Transformações aplicadas:**
-  - Filtro por empresa (`EMPRESA = 'HSR'`)
-  - Tipagem de 13 colunas de timestamp (string → timestamp)
+  - Renomeação `atend_PA` → `CD_ATENDIMENTO`
+  - Tipagem de 11 colunas de timestamp (string → timestamp)
   - Tipagem de data de atendimento (string → date)
-  - Tipagem de colunas numéricas (`IDADE`, `COD_TRIAGEM`, `REGISTRO_ANS`, 
-    `IDADE_CALCULADA`, `fl_conversao`, `fl_evasao` → integer)
+  - Tipagem de colunas numéricas (`IDADE`, `fl_conversao`, `fl_evasao` → integer). O pandas lê como decimal a coluna inteira que tem nulos
+  - Remoção do sufixo decimal `.0` de `atend_internacao` (mesma causa, em coluna de texto)
   - Padronização de classificação de risco (`AMARELO1` → `AMARELO`)
-  - 4 flags de consistência temporal: `flag_totem_classif`, `flag_classif_recep`, 
+  - 4 flags de consistência temporal: `flag_totem_classif`, `flag_classif_recep`,
     `flag_recep_atend`, `flag_atend_alta`
-  - Deduplicação por CD_ATENDIMENTO (ROW_NUMBER, mantém DT_HR_CLASSIF_RISCO 
+  - Deduplicação por CD_ATENDIMENTO (ROW_NUMBER, mantém DT_HR_CLASSIF_RISCO
     mais antiga)
-  - Remoção de colunas financeiras, leito sem dados, metadados de ingestão
-- **Expectations (monitoramento):** `flag_totem_classif`, `flag_classif_recep`, 
-  `flag_recep_atend`, `flag_atend_alta`
+  - Remoção dos metadados de ingestão
+- **Expectations (monitoramento):** `flag_totem_classif`, `flag_classif_recep`,
+  `flag_recep_atend`, `flag_atend_alta`. Todas com ação `ALLOW`: o registro é mantido e a violação é contada. Em mar/2026 violam `flag_atend_alta` (5.125 registros) e `flag_classif_recep` (16), ver RQ-022
 - **Expectation (drop):** nenhuma
 
 ### silver_cirurgias
@@ -371,7 +370,7 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 14 colunas. `gold
 |---|---|---|---|---|
 | `case_id` | string | `atendimento` | `CD_ATENDIMENTO` | Identificador do caso |
 | `case_type` | string | `tp_atendimento` | `"emergencia"` | Tipo de jornada |
-| `idade` | int | `idade` | `IDADE_CALCULADA` | Idade do paciente |
+| `idade` | int | `idade` | `IDADE` | Idade do paciente |
 | `sexo` | string | `sexo` | `SEXO` | Sexo do paciente |
 | `convenio` | string | `convenio` | `CONVENIO` | Convênio do paciente |
 | `especialidade` | string | `especialidade` | `ESPECIALIDADE` | Especialidade médica |
@@ -623,6 +622,9 @@ Todas as tabelas `gold_events_*` seguem o schema canônico com 14 colunas. `gold
 | `duracao_internacao_cirurgia_min` | double | Minutos entre abertura da internação e entrada na sala cirúrgica | Sim |
 | `duracao_cirurgia_leito_min` | double | Minutos entre saída da sala cirúrgica e chegada ao primeiro leito físico | Sim |
 | `duracao_total_min` | double | Duração total da jornada em minutos — da chegada à alta final | Sim |
+| `ts_alta_emergencia` | timestamp | Momento da alta da emergência (`DT_HR_ALTA` de `silver_atendimento_emergencia`) | Sim — null quando o atendimento não tem alta registrada e nas jornadas sem passagem pela emergência |
+| `origem_fim_emergencia` | string | Como o fim da emergência foi determinado (ADR-0025): `alta` (há `ts_alta_emergencia`), `internacao` (convertido sem alta, usa a abertura da internação) ou `sem_alta_registrada` (nenhum fim disponível, a duração fica nula) | Sim — null nas jornadas sem passagem pela emergência |
+| `duracao_emergencia_min` | double | Minutos entre a chegada à emergência (`ts_chegada`) e o fim da emergência: a alta da emergência ou, para o convertido sem alta, a abertura da internação (ADR-0025). Não inclui a permanência na internação | Sim — null em `sem_alta_registrada` e nas jornadas sem passagem pela emergência |
 
 ### gold_bi_jornada (view)
 

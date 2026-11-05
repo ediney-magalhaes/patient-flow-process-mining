@@ -177,7 +177,34 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - `docs/07-operations/ingestao-historico.md` com os itens do primeiro leito
   anterior ao registro, do caminho pelo leito de `internou_em_uti` e da
   conferência mensal contra o BigQuery
+- ADR-0024: fonte da emergência passa a ser a mart curada inteira
+  (`pipeline-analytics-emergencia.marts.atendimentos_pa`), extraída por
+  competência e anonimizada localmente antes do upload; Bronze fiel ao que
+  chega, Silver e Gold com ajustes mínimos, e procedimento de reingestão
+- `src/anonymization/extrair_mart.py`: extração local de uma ou mais
+  competências da mart para `data/raw/atendimento_emergencia_AAAA_MM.xlsx`,
+  com validação de contagem e de atendimentos sem chegada
+- ADR-0025: duração da Jornada Emergência (chegada até a alta da emergência) e
+  tratamento dos atendimentos sem alta registrada
+- `gold_patient_journey`: colunas `ts_alta_emergencia`, `origem_fim_emergencia`
+  (`alta`, `internacao` ou `sem_alta_registrada`) e `duracao_emergencia_min`.
+  Em mar/2026: 5.593 `alta` (mediana 187,1 min e P90 394,3 min), 4
+  `internacao` e 639 `sem_alta_registrada`, sem duração negativa; valores
+  conferidos contra um cálculo independente sobre a Silver
+- RQ-022: expectations de ordem temporal da emergência com violações
+  (`flag_atend_alta` e `flag_classif_recep`)
+- RQ-023: atendimentos de emergência sem alta registrada
 
+
+#### Alterado
+
+- Fonte da emergência: de arquivo exportado do sistema, enriquecido por
+  `enrichment.py` com a conversão curada, para a mart curada inteira
+  (ADR-0024). `enrich_conversao_curada` passa a `False` no `config.py`. A
+  Silver deixa de descartar colunas vindas da mart (`IDADE` é mantida) e
+  renomeia `atend_PA` para `CD_ATENDIMENTO`. Mar/2026 reingerido: 6.236
+  atendimentos, todos com chegada (antes 8.730 linhas na Bronze)
+- `gold_case_attributes`: `idade` da emergência passa a vir de `IDADE`
 
 #### Corrigido
 
@@ -295,6 +322,11 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - ADR-0022 e validação do cartão "Conversão UTI": o atendimento de internação
   direta em UTI não tinha só a `ALTA` como movimentação, e a diferença entre
   `has_uti` e `internou_em_uti` é de 16 atendimentos, e não de 17
+- `atend_internacao` chegava como `1620829.0` na Silver de emergência, porque o
+  pandas lê como decimal a coluna inteira com nulos, e a ligação com a
+  internação falhava; a Silver remove o sufixo `.0`. Após a correção, a
+  jornada `internacao_cirurgica_emergencia` voltou a existir e o total de
+  jornadas fechou em 6.658
 
 
 #### Sprint 3 — Process Mining (concluído)
