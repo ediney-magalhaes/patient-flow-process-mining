@@ -31,7 +31,7 @@ Com a mart curada como fonte (ADR-0024), todos os atendimentos de mar/2026 têm 
 | 3 | nenhum: a duração fica nula | `sem_alta_registrada` |
 
 2. **Colunas novas em `gold_patient_journey`:** `ts_alta_emergencia` (hoje existe só no intermediário), `duracao_emergencia_min` e `origem_fim_emergencia`. `duracao_emergencia_min` é `fim - ts_chegada`, em minutos. `duracao_total_min` não muda.
-3. **Visibilidade.** Atendimentos sem alta registrada não são excluídos em silêncio. A coluna `origem_fim_emergencia` os identifica, e o cartão mostra quantos casos ficaram nessa situação ao lado da mediana e do P90.
+3. **Visibilidade.** Atendimentos sem alta registrada não são excluídos em silêncio: a coluna `origem_fim_emergencia` os identifica em qualquer consulta à Gold. No dashboard, o cartão da seção Emergência mostra só a mediana e o P90 dos casos com duração. A contagem dos casos sem duração aparece no gráfico de duração por tipo de jornada (Emergência), na dica exibida ao passar o mouse sobre cada barra (decisão de 06/11/2026).
 4. **Estatística.** O cartão usa mediana e P90 (ADR-0023), calculados sobre as linhas de jornada no grão do filtro (ADR-0021), apenas dos casos com duração.
 
 ## Alternativas consideradas
@@ -42,9 +42,12 @@ Com a mart curada como fonte (ADR-0024), todos os atendimentos de mar/2026 têm 
 
 **Excluir os casos sem alta sem sinalizar.** Rejeitada: o cartão passaria a descrever apenas os atendimentos com alta, sem informar a proporção que ficou de fora.
 
+**Mostrar a contagem no próprio cartão**, em um cartão separado ao lado ou na linha do P90. Rejeitada em 06/11/2026: o contador tem só dois campos de texto, um cartão separado exigiria estreitar os outros cinco da linha, e os demais cartões não têm informação equivalente que justifique uma linha própria abaixo deles.
+
 ## Consequências
 
 - A duração da emergência é a mesma convenção do projeto de conversão, onde `minutos_permanencia_total` é nulo quando não há alta. A medida de referência do CMS (mediana de chegada a saída) também define a duração como saída menos chegada.
 - Em mar/2026, 639 atendimentos ficam sem duração (`sem_alta_registrada`), e os 4 convertidos usam a abertura da internação quando há internação vinculada.
 - A proporção de `sem_alta_registrada` passa a ser indicador de qualidade do registro e entra na conferência mensal de ingestão.
 - O cartão da seção Internação não é afetado: a alta da internação segue na jornada dela.
+- A contagem do gráfico por tipo é de casos sem `duracao_total_min`. Na barra `atendimento_emergencia` ela coincide com `sem_alta_registrada`. Nas barras com internação, a ausência vem da alta da internação, que pertence à jornada da seção Internação.

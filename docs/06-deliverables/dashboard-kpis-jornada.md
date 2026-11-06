@@ -30,8 +30,8 @@ gráficos por seção (tendência mensal + distribuição por categoria).
 | Taxa de Conversão (%) | `gold_patient_journey` | `AVG(Fl Conversao)`, formato % |
 | Conversão cirúrgica (% dos atendimentos do PA) | `gold_patient_journey` | `AVG(Has Cirurgia Numerico)`, formato %. Base: todos os atendimentos do PA (6.236 em mar/2026, resultado 2,74%) |
 | Conversão UTI (% dos atendimentos do PA) | `gold_patient_journey` | `AVG(Internou Em Uti Numerico)`, formato %. Base: todos os atendimentos do PA. Conta o atendimento que internou em UTI: o primeiro leito real da internação é de UTI, ou a internação foi registrada em leito de UTI (resultado 2,73% em mar/2026, ver `validacao-dashboard.md`) |
-| Tempo até o Leito (h) | `kpis_jornada_emergencia_cards` | Valor `mediana_formatada_leito` (mediana) e comparação `p90_formatado_leito` (P90), dos atendimentos do PA que internaram e têm leito real (412 em mar/2026: mediana de 3,95 h e P90 de 13,37 h). O recorte `cd_atendimento is not null` está na SQL do dataset, e o cartão responde ao filtro `Período` pelo parâmetro `periodo`. Padrão do ADR-0023 |
-| Tempo Médio da Jornada (h) | `gold_patient_journey` | `AVG(Duracao Total Horas)` |
+| Mediana do tempo até o leito (h) | `kpis_jornada_emergencia_cards` | Valor `mediana_formatada_leito` (mediana) e comparação `p90_formatado_leito` (P90), dos atendimentos do PA que internaram e têm leito real (412 em mar/2026: mediana de 3,95 h e P90 de 13,37 h). O recorte `cd_atendimento is not null` está na SQL do dataset, e o cartão responde ao filtro `Período` pelo parâmetro `periodo`. Padrão do ADR-0023 |
+| Mediana da Jornada (h) | `kpis_jornada_emergencia_cards` | Valor `mediana_formatada_jornada` (mediana) e comparação `p90_formatado_jornada` (P90), dos atendimentos do PA com duração da emergência (`duracao_emergencia_min`: chegada até a alta da emergência ou, no convertido sem alta, até a abertura da internação, ADR-0025): 5.597 em mar/2026, mediana de 3,1 h e P90 de 6,6 h. Os 639 sem alta registrada ficam fora do cálculo e são contados na dica do gráfico por tipo de jornada. O cartão responde ao filtro `Período` pelo parâmetro `periodo`. Padrão do ADR-0023 |
 
 **Gráfico "Duração Média por Tipo de Jornada (Emergência)"** — barra,
 dataset `kpis_jornada_emergencia_por_tipo`, eixo X `tipo_jornada`, eixo Y
@@ -115,7 +115,7 @@ o propósito.
 
 ### `kpis_jornada_emergencia_cards`
 
-Grão: 1 linha (agregado). Parâmetro: `periodo` (`'Todos'` ou um `ano_mes`), ligado ao filtro `Período` da página. Alimenta o cartão "Tempo até o Leito", no formato dos cartões da Página 2 (colunas de texto `*_formatado*`, com vírgula decimal). A mediana e o P90 são calculados na hora, sobre o filtro escolhido (ADR-0023).
+Grão: 1 linha (agregado). Parâmetro: `periodo` (`'Todos'` ou um `ano_mes`), ligado ao filtro `Período` da página. Alimenta os cartões "Mediana do tempo até o leito" e "Mediana da Jornada", no formato dos cartões da Página 2 (colunas de texto `*_formatado*`, com vírgula decimal). A mediana e o P90 são calculados na hora, sobre o filtro escolhido (ADR-0023).
 
 ```sql
 with j as (
@@ -137,9 +137,9 @@ base as (
         percentile(leito_min, 0.5) as mediana_leito_min,
         percentile(leito_min, 0.9) as p90_leito_min,
         count(leito_min) as casos_leito,
-        percentile(duracao_total_min, 0.5) as mediana_jornada_min,
-        percentile(duracao_total_min, 0.9) as p90_jornada_min,
-        count(duracao_total_min) as casos_jornada
+        percentile(duracao_emergencia_min, 0.5) as mediana_jornada_min,
+        percentile(duracao_emergencia_min, 0.9) as p90_jornada_min,
+        count(duracao_emergencia_min) as casos_jornada
     from j
 )
 select
@@ -153,7 +153,7 @@ select
 from base
 ```
 
-As colunas `tx_conversao`, `tx_conversao_cirurgica`, `tx_conversao_uti`, `tempo_medio_jornada_horas` e `total_atendimento` já existiam e não foram alteradas. As colunas `*_jornada` calculam a mediana e o P90 do tempo da jornada.
+As colunas `tx_conversao`, `tx_conversao_cirurgica`, `tx_conversao_uti`, `tempo_medio_jornada_horas` e `total_atendimento` já existiam e não foram alteradas. As colunas `*_jornada` calculam a mediana e o P90 da duração da emergência (`duracao_emergencia_min`, ADR-0025), só dos atendimentos que têm duração.
 
 ### `kpis_jornada_emergencia_por_tipo`
 

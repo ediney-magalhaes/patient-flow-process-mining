@@ -57,3 +57,16 @@ Cada valor exibido no dashboard é conferido contra uma consulta que não passa 
   - O cartão lia `gold_patient_journey` sem ligação com o parâmetro `periodo`, então não responderia ao filtro `Período` depois do segundo mês ingerido.
 - **Correção:** `df_primeiro_leito` e o primeiro leito de `internou_em_uti` passaram a ignorar `ALTA` (commit `35eaf0c`, com Full Refresh). O caso `1631623` foi de −10,3 h para 0 h, e não restam tempos negativos nas 732 internações. O cartão passou a ler `kpis_jornada_emergencia_cards`, no mesmo formato dos cartões da Página 2: valor `mediana_formatada_leito`, comparação `p90_formatado_leito` e filtro `Período` pelo parâmetro `periodo`.
 - **Resultado:** confere depois da correção.
+
+### Mediana da Jornada (seção Emergência)
+
+- **Valor no cartão:** mediana de 3,1 h e P90 de 6,6 h, sobre 5.597 casos (antes, média de 10,14 h).
+- **Regra:** tempo entre a chegada ao pronto-socorro e a alta da emergência, de todos os atendimentos do PA, inclusive os que internaram. No convertido sem alta, o fim é a abertura da internação. Sem nenhum dos dois, o atendimento fica sem duração (ADR-0025).
+- **Conferência:** Silver, consulta independente do dataset do widget, ligando `silver_atendimento_emergencia` a `silver_internacoes` e aplicando a regra do ADR-0025: 5.597 casos, mediana de 187,07 min (3,12 h) e P90 de 394,12 min (6,57 h). Só com alta, a Silver dá 5.593 casos, mediana de 187,13 min e P90 de 394,25 min, iguais aos da Gold. Por origem do fim, a Gold tem 5.593 `alta`, 4 `internacao` e 639 `sem_alta_registrada`, sem nenhuma duração negativa.
+- **Divergências encontradas:**
+  - O cartão media `duracao_total_min`, que vai até a alta final da internação. Para quem internou, isso inclui a permanência na internação, que pertence à jornada da seção Internação. A média de 10,14 h não era o tempo no pronto-socorro.
+  - 643 atendimentos não têm `DT_HR_ALTA` (RQ-023). Quatro são convertidos e usam a abertura da internação, e 639 ficam sem duração.
+  - O cartão lia `gold_patient_journey` sem ligação com o parâmetro `periodo`, então não responderia ao filtro `Período` depois do segundo mês ingerido.
+- **Correção:** colunas `ts_alta_emergencia`, `origem_fim_emergencia` e `duracao_emergencia_min` em `gold_patient_journey` (commit `6e41aff`, com Full Refresh de `gold_transformations`). O cartão passou a ler `kpis_jornada_emergencia_cards` (`mediana_formatada_jornada` e `p90_formatado_jornada`), com o título "Mediana da Jornada (h)".
+- **Decisão:** a contagem dos casos sem duração não aparece no cartão. Ela vai para a dica do gráfico de duração por tipo de jornada, na validação desse gráfico (ADR-0025, atualizado em 06/11/2026).
+- **Resultado:** confere depois da correção.
