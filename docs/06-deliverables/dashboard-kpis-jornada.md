@@ -42,9 +42,11 @@ da emergência (`duracao_emergencia_min`, ADR-0025), no mesmo padrão do cartão
 mar/2026, os 639 casos sem duração estão todos em Atendimento Emergência, e
 Cirurgia Ambulatorial tem 1 caso, com mediana e P90 iguais.
 
-**Gráfico "Tendência Mensal — Tempo Médio da Jornada"** — linha, dataset
-`kpis_jornada_emergencia`, eixo X `ano_mes`, eixo Y
-`SUM(tempo_medio_jornada_horas)`. Configurado para **ignorar** o filtro
+**Gráfico "Tendência Mensal — Mediana e Percentil 90 da Jornada"** — linha,
+dataset `kpis_jornada_emergencia`, eixo X `ano_mes`, eixo Y "Horas" com duas
+séries, `SUM(mediana_horas)` (Mediana (h)) e `SUM(p90_horas)` (P90 (h)), da
+duração da emergência (`duracao_emergencia_min`, ADR-0025; padrão do
+ADR-0023). Configurado para **ignorar** o filtro
 global `Período` — sempre mostra a série histórica completa, mesmo quando
 um mês específico está selecionado nos cards.
 
@@ -92,8 +94,8 @@ pretendido.
 
 ### `kpis_jornada_emergencia`
 
-Grão: 1 linha por `ano_mes`. Alimenta os cards de percentual/tempo médio e
-o gráfico de tendência da seção Emergência.
+Grão: 1 linha por `ano_mes`. Alimenta o gráfico de tendência da seção
+Emergência, com a mediana e o P90 da duração da emergência por mês.
 
 ```sql
 select
@@ -102,7 +104,8 @@ select
   round(sum(fl_conversao) * 100.0 / count(distinct cd_atendimento), 1) as tx_conversao,
   round(sum(case when has_cirurgia = true then 1 else 0 end) * 100.0 / count(distinct cd_atendimento), 1) as tx_conversao_cirurgica,
   round(sum(case when has_uti = true then 1 else 0 end) * 100.0 / count(distinct cd_atendimento), 1) as tx_conversao_uti,
-  round(avg(duracao_total_min) / 60.0, 1) as tempo_medio_jornada_horas
+  round(percentile(duracao_emergencia_min, 0.5) / 60.0, 1) as mediana_horas,
+  round(percentile(duracao_emergencia_min, 0.9) / 60.0, 1) as p90_horas
 from hospital_santa_rosa.gold_fluxo.gold_patient_journey
 where cd_atendimento is not null
 group by ano_mes

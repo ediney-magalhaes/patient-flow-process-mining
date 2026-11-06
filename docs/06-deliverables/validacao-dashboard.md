@@ -83,3 +83,12 @@ Cada valor exibido no dashboard é conferido contra uma consulta que não passa 
 - **Correção:** o dataset `kpis_jornada_emergencia_por_tipo` passou a devolver `mediana_horas`, `p90_horas`, `casos_com_duracao` e `casos_sem_duracao` sobre `duracao_emergencia_min`. O gráfico foi renomeado para "Mediana da Jornada por Tipo (Emergência)", com eixo Y "Horas (mediana)", dica com P90, casos com duração e casos sem duração, e barras em ordem decrescente.
 - **Observação:** Cirurgia Ambulatorial tem 1 jornada em mar/2026, e a dica mostra 1 caso.
 - **Resultado:** confere depois da correção.
+
+### Tendência Mensal — Mediana e P90 da Jornada (seção Emergência)
+
+- **Valor no gráfico:** mar/2026 com mediana de 3,1 h e P90 de 6,6 h (antes, média de 10,1 h). Com um único mês ingerido, cada série é um ponto, e as linhas se formam a partir da segunda ingestão.
+- **Regra:** duração da emergência (ADR-0025), em mediana e P90 por mês (ADR-0023).
+- **Conferência:** o dataset devolve 3,1 h e 6,6 h para `2026-03`, os mesmos valores do cartão "Mediana da Jornada (h)", que foi conferido contra a Silver (mediana de 187,07 min, P90 de 394,12 min e 5.597 casos).
+- **Divergência encontrada:** o gráfico media `duracao_total_min`, que vai até a alta final da internação, então a média de 10,1 h incluía a permanência dos que internaram.
+- **Correção:** o dataset `kpis_jornada_emergencia` passou a devolver `mediana_horas` e `p90_horas` sobre `duracao_emergencia_min`. O gráfico foi renomeado para "Tendência Mensal — Mediana e Percentil 90 da Jornada", com as séries "Mediana (h)" e "P90 (h)" e o eixo Y "Horas".
+- **Resultado:** confere depois da correção.
