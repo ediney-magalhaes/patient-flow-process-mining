@@ -68,5 +68,18 @@ Cada valor exibido no dashboard é conferido contra uma consulta que não passa 
   - 643 atendimentos não têm `DT_HR_ALTA` (RQ-023). Quatro são convertidos e usam a abertura da internação, e 639 ficam sem duração.
   - O cartão lia `gold_patient_journey` sem ligação com o parâmetro `periodo`, então não responderia ao filtro `Período` depois do segundo mês ingerido.
 - **Correção:** colunas `ts_alta_emergencia`, `origem_fim_emergencia` e `duracao_emergencia_min` em `gold_patient_journey` (commit `6e41aff`, com Full Refresh de `gold_transformations`). O cartão passou a ler `kpis_jornada_emergencia_cards` (`mediana_formatada_jornada` e `p90_formatado_jornada`), com o título "Mediana da Jornada (h)".
-- **Decisão:** a contagem dos casos sem duração não aparece no cartão. Ela vai para a dica do gráfico de duração por tipo de jornada, na validação desse gráfico (ADR-0025, atualizado em 06/11/2026).
+- **Decisão:** a contagem dos casos sem duração não aparece no cartão. Ela aparece na dica do gráfico de duração por tipo de jornada (ADR-0025, atualizado em 06/11/2026).
+- **Resultado:** confere depois da correção.
+
+### Mediana da Jornada por Tipo (seção Emergência)
+
+- **Valor no gráfico:** medianas de 3,4 h (Internação Clínica), 3,1 h (Atendimento Emergência), 2,4 h (Internação Cirúrgica (Emergência)) e 1,1 h (Cirurgia Ambulatorial). Antes, o gráfico mostrava médias de 97 h (Internação Cirúrgica (Emergência)), 76,1 h (Internação Clínica), 3,7 h (Atendimento Emergência) e 1,1 h (Cirurgia Ambulatorial).
+- **Regra:** duração da emergência (`duracao_emergencia_min`, ADR-0025), em mediana e P90 por tipo de jornada (ADR-0023), com a contagem de jornadas com e sem duração na dica.
+- **Conferência:** Gold, consulta direta por `journey_type`, sem passar pelo dataset do widget. Medianas de 204,3, 187,1, 142,5 e 64,9 min e P90 de 439,7, 392,7, 392,3 e 64,9 min, na mesma ordem. Jornadas com duração: 282, 5.144, 170 e 1, somando 5.597, o total já conferido contra a Silver no cartão "Mediana da Jornada". Sem duração: 639, todas em Atendimento Emergência (6.236 jornadas no total).
+- **Divergências encontradas:**
+  - O gráfico media `duracao_total_min`, que vai até a alta final da internação. As barras de internação (97 h e 76,1 h) eram quase só permanência na internação, que pertence à seção Internação.
+  - O filtro `duracao_total_min is not null` do dataset descartava as jornadas sem duração antes de qualquer contagem, então os 639 casos não apareciam em lugar nenhum.
+  - A média não trazia dispersão, e o coeficiente de variação da dica dependia da média. O padrão passou a ser mediana e P90 (ADR-0023).
+- **Correção:** o dataset `kpis_jornada_emergencia_por_tipo` passou a devolver `mediana_horas`, `p90_horas`, `casos_com_duracao` e `casos_sem_duracao` sobre `duracao_emergencia_min`. O gráfico foi renomeado para "Mediana da Jornada por Tipo (Emergência)", com eixo Y "Horas (mediana)", dica com P90, casos com duração e casos sem duração, e barras em ordem decrescente.
+- **Observação:** Cirurgia Ambulatorial tem 1 jornada em mar/2026, e a dica mostra 1 caso.
 - **Resultado:** confere depois da correção.

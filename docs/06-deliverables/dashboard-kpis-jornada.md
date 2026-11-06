@@ -33,11 +33,14 @@ gráficos por seção (tendência mensal + distribuição por categoria).
 | Mediana do tempo até o leito (h) | `kpis_jornada_emergencia_cards` | Valor `mediana_formatada_leito` (mediana) e comparação `p90_formatado_leito` (P90), dos atendimentos do PA que internaram e têm leito real (412 em mar/2026: mediana de 3,95 h e P90 de 13,37 h). O recorte `cd_atendimento is not null` está na SQL do dataset, e o cartão responde ao filtro `Período` pelo parâmetro `periodo`. Padrão do ADR-0023 |
 | Mediana da Jornada (h) | `kpis_jornada_emergencia_cards` | Valor `mediana_formatada_jornada` (mediana) e comparação `p90_formatado_jornada` (P90), dos atendimentos do PA com duração da emergência (`duracao_emergencia_min`: chegada até a alta da emergência ou, no convertido sem alta, até a abertura da internação, ADR-0025): 5.597 em mar/2026, mediana de 3,1 h e P90 de 6,6 h. Os 639 sem alta registrada ficam fora do cálculo e são contados na dica do gráfico por tipo de jornada. O cartão responde ao filtro `Período` pelo parâmetro `periodo`. Padrão do ADR-0023 |
 
-**Gráfico "Duração Média por Tipo de Jornada (Emergência)"** — barra,
+**Gráfico "Mediana da Jornada por Tipo (Emergência)"** — barra,
 dataset `kpis_jornada_emergencia_por_tipo`, eixo X `tipo_jornada`, eixo Y
-`SUM(duracao_media_horas)`, ordenado decrescente, tooltip com
-`coeficiente_variacao` (CV%, ver nota de formatação abaixo). Cobre as
-quatro categorias do Bloco A.
+`SUM(mediana_horas)` (título "Horas (mediana)"), ordenado decrescente. A dica
+mostra P90 (h), Casos com duração e Casos sem duração. A barra mede a duração
+da emergência (`duracao_emergencia_min`, ADR-0025), no mesmo padrão do cartão
+"Mediana da Jornada (h)" (ADR-0023). Cobre as quatro categorias do Bloco A. Em
+mar/2026, os 639 casos sem duração estão todos em Atendimento Emergência, e
+Cirurgia Ambulatorial tem 1 caso, com mediana e P90 iguais.
 
 **Gráfico "Tendência Mensal — Tempo Médio da Jornada"** — linha, dataset
 `kpis_jornada_emergencia`, eixo X `ano_mes`, eixo Y
@@ -158,7 +161,7 @@ As colunas `tx_conversao`, `tx_conversao_cirurgica`, `tx_conversao_uti`, `tempo_
 ### `kpis_jornada_emergencia_por_tipo`
 
 Grão: 1 linha por `journey_type` (categoria de negócio, ver ADR-0014).
-Alimenta o gráfico de distribuição da seção Emergência.
+Alimenta o gráfico de distribuição da seção Emergência. Mediana e P90 da duração da emergência (`duracao_emergencia_min`, ADR-0025), com a contagem de jornadas com e sem duração. O `where` não filtra as jornadas sem duração, para que elas entrem na contagem.
 
 ```sql
 select
@@ -167,14 +170,14 @@ select
                     when 'internacao_clinica' then 'Internação Clínica'
                     when 'internacao_cirurgica_emergencia' then 'Internação Cirúrgica (Emergência)'
   end as tipo_jornada,
-  round(avg(duracao_total_min) / 60.0, 1) as duracao_media_horas,
-  round(stddev(duracao_total_min) / 60.0, 1) as desvio_padrao_horas,
-  round((stddev(duracao_total_min) / avg(duracao_total_min)) * 100, 1) as coeficiente_variacao
+  round(percentile(duracao_emergencia_min, 0.5) / 60.0, 1) as mediana_horas,
+  round(percentile(duracao_emergencia_min, 0.9) / 60.0, 1) as p90_horas,
+  count(duracao_emergencia_min) as casos_com_duracao,
+  count_if(duracao_emergencia_min is null) as casos_sem_duracao
 from hospital_santa_rosa.gold_fluxo.gold_patient_journey
-where duracao_total_min is not null
-      and journey_type in('atendimento_emergencia', 'cirurgia_ambulatorial', 'internacao_clinica', 'internacao_cirurgica_emergencia')
+where journey_type in('atendimento_emergencia', 'cirurgia_ambulatorial', 'internacao_clinica', 'internacao_cirurgica_emergencia')
 group by journey_type
-order by duracao_media_horas desc
+order by mediana_horas desc
 ```
 
 ### `kpis_jornada_internacao_direta`
