@@ -896,16 +896,24 @@ def gold_patient_journey():
     # unidades extras para exclusão do primeiro movimento de leito
     unidades_extras = ["BERCARIO - ALOJAMENTO CONJUNTO", "HEMODINAMICA", "OBSERVACAO PA", "EXTRA INTERNACAO"]
 
-    # DataFrame com o timestamp do primeiro leito físico real (ignora unidades virtuais e registros de ALTA, que não são entrada em leito)
-    df_primeiro_leito = df_movim.filter(
-        ~F.col("unidade_movimentacao").isin(unidades_extras) &
-        (F.coalesce(F.col("tipo_movimentacao"), F.lit("")) != "ALTA")
-    ).groupBy("CD_INTERNACAO") \
-     .agg(F.min("DT_HR_MOVIMENTACAO").alias("ts_primeiro_leito"))
 
     # movimentações SEM deduplicar: nos pares TRANSFER. DE / TRANSFER. PARA a UNIDADE difere entre as duas linhas (973 de 973 pares em mar/2026), e dropDuplicates
     # mantém uma delas ao acaso. Para saber o primeiro leito real é preciso as duas linhas
     df_movim_bruta = spark.read.table("hospital_santa_rosa.silver_fluxo.silver_movimentacoes")
+    
+    # DataFrame com o timestamp do primeiro leito físico real (ignora unidades virtuais, registros de ALTA e transferencia PARA, que não são entrada em leito)
+    df_primeiro_leito = df_movim_bruta.filter(
+        ~F.col("UNIDADE").isin(unidades_extras) &
+        (F.coalesce(F.col("TIPO"), F.lit("")) != "ALTA") &
+        (F.coalesce(F.col("TIPO"), F.lit("")) != "TRANSFER. PARA")
+    ).groupBy("CD_INTERNACAO") \
+     .agg(F.min(F.struct("DT_HR_MOVIMENTACAO", "UNIDADE")).alias("primeiro_leito")) \
+     .select(
+         "CD_INTERNACAO",
+         F.col("primeiro_leito.DT_HR_MOVIMENTACAO").alias("ts_primeiro_leito"),
+         F.col("primeiro_leito.UNIDADE").alias("unidade_primeiro_leito")
+         )
+
 
     # janela por internação, da movimentação mais antiga para a mais recente
     janela_primeiro_leito_real = Window.partitionBy("CD_INTERNACAO").orderBy(F.col("DT_HR_MOVIMENTACAO").asc())
@@ -1013,6 +1021,7 @@ def gold_patient_journey():
         "ts_entrada_cirurgia",
         "ts_saida_cirurgia",
         "ts_primeiro_leito",
+        "unidade_primeiro_leito",
         "ts_primeira_entrada_uti",
         "ts_ultima_saida_uti",
         "ts_alta_medica",
