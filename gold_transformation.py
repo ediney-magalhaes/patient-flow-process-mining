@@ -715,7 +715,8 @@ def gold_patient_journey():
         F.col("DT_HR_ATENDIMENTO").alias("ts_entrada_internacao"),
         F.col("DT_HR_ALTA").alias("ts_alta_internacao"),
         F.col("ORIGEM_ATEND"),
-        F.col("ESPECIALID_ATEND").alias("especialidade_internacao")
+        F.col("ESPECIALID_ATEND").alias("especialidade_internacao"),
+        F.col("UNIDADE").alias("unidade_leito_inicial")
     )
 
     # filtra apenas consultas da emergência convertida, usando left_anti para isolar internações sem origem na emergência
@@ -1022,6 +1023,7 @@ def gold_patient_journey():
         "ts_saida_cirurgia",
         "ts_primeiro_leito",
         "unidade_primeiro_leito",
+        "unidade_leito_inicial",
         "ts_primeira_entrada_uti",
         "ts_ultima_saida_uti",
         "ts_alta_medica",
