@@ -989,3 +989,38 @@ Para `alta`, a mediana é de 187,1 min e o P90 de 394,3 min, sem nenhuma duraç�
 ### Ação futura recomendada
 
 Incluir a proporção de `sem_alta_registrada` na conferência mensal de ingestão (`ingestao-historico.md`). Um aumento indica falha no registro da alta na origem.
+
+
+## RQ-024: Cirúrgicas com o primeiro leito anterior à saída da sala, fora da espera pelo leito
+
+- **Tabelas afetadas:** `gold_patient_journey` (`ts_primeiro_leito` e `ts_saida_cirurgia`) e os datasets `kpis_jornada_emergencia_cards`, `internacao_por_unidade` e `internacao_etapas_leito`
+- **Data do achado:** 2026-11-13
+- **Contexto:** correção da espera pelo leito na Página 1 do Dashboard (ADR-0026)
+
+### Achado
+
+Ao medir a espera pelo leito a partir da saída da sala cirúrgica, apareceram valores negativos: o `ts_primeiro_leito` era anterior ao `ts_saida_cirurgia`. Em mar/2026, entre as jornadas cirúrgicas com internação, saída da sala e primeiro leito preenchidos, o primeiro leito veio antes da saída da sala em 28 de 280 cirúrgicas eletivas e em 120 de 165 cirúrgicas via emergência.
+
+### Causa
+
+`ts_primeiro_leito` é a primeira movimentação para leito físico real da internação (ADR-0011), e não o leito do pós-operatório. Quem já ocupava um leito antes da cirurgia tem o primeiro leito anterior à saída da sala. Não é erro de dado: o paciente não esperou leito depois da cirurgia, porque já tinha um.
+
+### Decisão
+
+Vale a regra do ADR-0026: nas jornadas cirúrgicas, a espera só é calculada quando `ts_primeiro_leito >= ts_saida_cirurgia`. Os demais ficam com valor nulo, sem zerar nem tratar o negativo, e a mediana os ignora. A exclusão é visível pelas colunas de casos (`casos_leito` no card da Emergência e `casos_com_espera_h` na tabela por unidade). A coluna `duracao_cirurgia_leito_min` da `gold_patient_journey` não foi alterada.
+
+### Resultado (mar/2026)
+
+- Cirúrgicas eletivas: 28 de 280 ficam fora da espera, cerca de 10%.
+- Cirúrgicas via emergência: 120 de 165 ficam fora, cerca de três quartos. Só 45 delas entram na espera do card da Emergência.
+- Card "Mediana do tempo até o leito" da Emergência: 297 casos, mediana de 3,1 h e P90 de 13,1 h.
+- Etapa 3 do gráfico das etapas, eletivas: 252 casos e mediana de 2,7 h.
+
+### Limitações
+
+- O motivo de a proporção ser tão maior nas cirúrgicas via emergência do que nas eletivas não foi investigado.
+- Os casos com leito anterior à cirurgia não entram em nenhuma medida de espera pelo leito do dashboard.
+
+### Ação futura recomendada
+
+Ao carregar novos meses, acompanhar se a proporção por tipo de jornada se mantém. Se a diferença entre eletivas e via emergência se repetir, investigar o motivo antes de qualquer mudança de regra.

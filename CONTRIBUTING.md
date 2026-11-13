@@ -45,9 +45,8 @@ cd patient-flow-process-mining
 git remote add upstream https://github.com/ediney-magalhaes/patient-flow-process-mining.git
  
 # Crie ambiente virtual
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# .venv\Scripts\activate   # Windows
+py -3.13 -m venv C:\venvs\patient-flow
+C:\venvs\patient-flow\Scripts\Activate.ps1
 ```
  
 ---

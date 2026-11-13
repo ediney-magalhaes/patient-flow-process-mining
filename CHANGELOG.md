@@ -194,6 +194,18 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
 - RQ-022: expectations de ordem temporal da emergência com violações
   (`flag_atend_alta` e `flag_classif_recep`)
 - RQ-023: atendimentos de emergência sem alta registrada
+- `gold_patient_journey`: colunas `unidade_primeiro_leito` (unidade do primeiro
+  leito definitivo, lida das movimentações) e `unidade_leito_inicial` (`UNIDADE`
+  da base de internações, preenchida em todas as internações). Em mar/2026:
+  732 e 867 das 867 internações
+- Página 1 do dashboard, seção Internação: gráfico das etapas até o leito
+  (`internacao_etapas_leito`), tabela "Internações por unidade do 1º leito"
+  (`internacao_por_unidade`) e cards "Mediana da Jornada" e "Mediana das
+  Internações em Curso" (`kpis_jornada_internacao_cards`), com duração em dias
+  e horas a partir de 24 h
+- ADR-0026 (espera real pelo leito), ADR-0027 (unidade do 1º leito na tabela
+  por unidade) e RQ-024 (cirúrgicas com o primeiro leito anterior à saída da
+  sala)
 
 
 #### Alterado
@@ -205,6 +217,20 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   renomeia `atend_PA` para `CD_ATENDIMENTO`. Mar/2026 reingerido: 6.236
   atendimentos, todos com chegada (antes 8.730 linhas na Bronze)
 - `gold_case_attributes`: `idade` da emergência passa a vir de `IDADE`
+- Espera pelo leito na Página 1 (ADR-0026): o card "Mediana do tempo até o
+  leito" da Emergência passa a medir a espera real. Na internação clínica
+  conta da abertura da internação. Na cirúrgica, da saída da sala, só quando o
+  primeiro leito é posterior a ela. Em mar/2026: de 3,95 h (412 casos) para
+  3,1 h, com P90 de 13,1 h e 297 casos
+- Filtro Período da Página 1: todos os visuais reagem, exceto as duas
+  tendências mensais. Os datasets `kpis_jornada_emergencia_cards`,
+  `kpis_jornada_emergencia_por_tipo`, `kpis_jornada_internacao_cards`,
+  `kpis_jornada_internacao_direta_por_tipo` e `internacao_por_unidade` usam o
+  parâmetro `:periodo` (seleção múltipla), e `gold_patient_journey` e
+  `internacao_etapas_leito` são ligados por Fields
+- Dataset `gold_bi_jornada` removido do dashboard, por não ter uso em nenhuma
+  página. A view continua no Unity Catalog
+- Página 1 do dashboard publicada em 13/11/2026, com os dados de mar/2026
 
 #### Corrigido
 
@@ -327,6 +353,12 @@ e o projeto adere ao [Versionamento Semântico 2.0.0](https://semver.org/lang/pt
   internação falhava; a Silver remove o sufixo `.0`. Após a correção, a
   jornada `internacao_cirurgica_emergencia` voltou a existir e o total de
   jornadas fechou em 6.658
+- Esperas negativas pelo leito nas jornadas cirúrgicas (primeiro leito anterior
+  à saída da sala) deixam de entrar nas medianas do card da Emergência, da
+  tabela por unidade e do gráfico das etapas (ADR-0026, RQ-024)
+- `data-dictionary.md`: `qtd_passagens_uti` e `qtd_reentradas_uti` passam a
+  `bigint`, tipo real da tabela, e entram as colunas `especialidade_emergencia`,
+  `especialidade_internacao` e `especialidade_cirurgia`, que faltavam
 
 
 #### Sprint 3 — Process Mining (concluído)
